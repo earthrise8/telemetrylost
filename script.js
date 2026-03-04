@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const storeOverlay = document.getElementById('store-overlay');
     const storeKcalsEl = document.getElementById('store-kcals');
     const storeItemsEl = document.getElementById('store-items');
-    const closeStoreBtn = document.getElementById('close-store-btn');
     const setupScreen = document.getElementById('setup-screen');
     const characterNameInput = document.getElementById('character-name-input');
     const suitSelectionContainer = document.getElementById('suit-selection');
@@ -118,18 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function selectSuit(e) {
-        playerLoadout.suit = e.target.dataset.suit;
-        document.querySelectorAll('.suit-btn').forEach(btn => btn.classList.remove('selected'));
-        e.target.classList.add('selected');
-    }
-
-    function selectTool(e) {
-        playerLoadout.tool = e.target.dataset.tool;
-        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
-        e.target.classList.add('selected');
-    }
-
     function startExpedition() {
         if (!playerLoadout.suit || !playerLoadout.tool || !characterNameInput.value) {
             alert("Please enter a Cycler ID and select an owned suit and tool.");
@@ -139,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setupScreen.classList.add('hidden');
         mainWrapper.classList.remove('hidden');
 
-        player = { name: characterNameInput.value, health: loadoutModifiers.suits[playerLoadout.suit].health, temperature: loadoutModifiers.suits[playerLoadout.suit].temperature, kCals: 2000, aggression: 0 };
+        player = { name: characterNameInput.value, health: loadoutModifiers.suits[playerLoadout.suit].health, temperature: loadoutModifiers.suits[playerLoadout.suit].temperature, kCals: 5000, aggression: 0 };
         gameTime = 420;
         currentQuadrant = 'landingZone';
 
@@ -184,8 +171,25 @@ document.addEventListener('DOMContentLoaded', () => {
         startExpeditionBtn.addEventListener('click', startExpedition);
         cycleBtn.addEventListener('click', () => location.reload());
         closeStoreBtn.addEventListener('click', closeStore);
-        suitSelectionContainer.addEventListener('click', e => e.target.matches('.suit-btn') && selectSuit(e));
-        toolSelectionContainer.addEventListener('click', e => e.target.matches('.tool-btn') && selectTool(e));
+
+        suitSelectionContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('.suit-btn');
+            if (button && !button.disabled) {
+                playerLoadout.suit = button.dataset.suit;
+                document.querySelectorAll('.suit-btn').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            }
+        });
+
+        toolSelectionContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('.tool-btn');
+            if (button && !button.disabled) {
+                playerLoadout.tool = button.dataset.tool;
+                document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+            }
+        });
+
         mapContainer.addEventListener('wheel',e=>{e.preventDefault();mapState.scale+=e.deltaY*-0.001;mapState.scale=Math.min(Math.max(0.5,mapState.scale),4);updateMap();});
         mapContainer.addEventListener('mousedown',e=>{if(e.button!==2)return;e.preventDefault();mapState.isPanning=true;mapContainer.style.cursor='grabbing';mapState.startX=e.clientX-mapState.x;mapState.startY=e.clientY-mapState.y;});
         window.addEventListener('mouseup',e=>{if(e.button!==2||!mapState.isPanning)return;mapState.isPanning=false;mapContainer.style.cursor='grab';});
