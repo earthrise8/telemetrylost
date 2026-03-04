@@ -255,46 +255,69 @@ function resetInstance(asDeath){
   updateStats();
 }
 
-// --- Init ---
-loadPersist();
-makeChoices();
-setText('Welcome to Last Ocular Connection. Configure suit and tool.');
-updateStats();
-
-// --- Title / Intro / Name flow ---
+// --- Init & Title / Intro / Name flow ---
 const INTRO_PAGES = [
   "You are an expendable survey instance, dispatched to map an uncharted frozen world.",
   "Your creators bank biotokens for returned data. Deaths are expected. Learn and adapt.",
   "Choose your designation in the cycler, choose a suit and tool, then deploy."
 ];
 
-function showTitle(){ document.getElementById('titleScreen').classList.remove('hidden'); }
-function hideTitle(){ document.getElementById('titleScreen').classList.add('hidden'); }
+document.addEventListener('DOMContentLoaded', ()=>{
+  // ensure UI initial state
+  loadPersist();
+  makeChoices();
+  updateStats();
+  setText('Welcome to Last Ocular Connection. Configure suit and tool.');
 
-document.getElementById('titleStart').addEventListener('click', ()=>{
-  hideTitle(); startIntro();
-});
+  // screen helpers
+  function showTitle(){ document.getElementById('titleScreen').classList.remove('hidden'); }
+  function hideTitle(){ document.getElementById('titleScreen').classList.add('hidden'); }
 
-let introIndex = 0;
-function startIntro(){
-  introIndex = 0; document.getElementById('introText').textContent = INTRO_PAGES[introIndex];
-  document.getElementById('introScreen').classList.remove('hidden');
-}
+  // wire title/start
+  const titleBtn = document.getElementById('titleStart');
+  if(titleBtn) titleBtn.addEventListener('click', ()=>{ hideTitle(); startIntro(); });
 
-document.getElementById('introNext').addEventListener('click', ()=>{
-  introIndex++;
-  if(introIndex < INTRO_PAGES.length){ document.getElementById('introText').textContent = INTRO_PAGES[introIndex]; }
-  else { document.getElementById('introScreen').classList.add('hidden'); showNamePrompt(); }
-});
+  // intro flow
+  let introIndex = 0;
+  function startIntro(){
+    introIndex = 0;
+    const introEl = document.getElementById('introText'); if(introEl) introEl.textContent = INTRO_PAGES[introIndex];
+    document.getElementById('introScreen').classList.remove('hidden');
+  }
+  const introNext = document.getElementById('introNext');
+  if(introNext) introNext.addEventListener('click', ()=>{
+    introIndex++;
+    if(introIndex < INTRO_PAGES.length){ document.getElementById('introText').textContent = INTRO_PAGES[introIndex]; }
+    else { document.getElementById('introScreen').classList.add('hidden'); showNamePrompt(); }
+  });
 
-function showNamePrompt(){ document.getElementById('namePrompt').classList.remove('hidden'); }
-document.getElementById('nameSubmit').addEventListener('click', ()=>{
-  const name = document.getElementById('cyclename').value.trim() || 'Unit-01';
-  state.playerName = name;
+  // name prompt
+  function showNamePrompt(){
+    document.getElementById('namePrompt').classList.remove('hidden');
+    const input = document.getElementById('cyclename'); if(input) input.focus();
+  }
+
+  const nameBtn = document.getElementById('nameSubmit');
+  if(nameBtn) nameBtn.addEventListener('click', (e)=>{
+    if(e && e.preventDefault) e.preventDefault();
+    const raw = document.getElementById('cyclename').value.trim() || 'Unit';
+    const designation = `${raw}-${Math.max(0,persist.deaths)}`;
+    state.playerName = designation;
+    document.getElementById('namePrompt').classList.add('hidden');
+    document.getElementById('loadout').classList.remove('hidden');
+    document.getElementById('actions').classList.add('hidden');
+    setText(`Cycler ${state.playerName} ready. Configure loadout.`);
+    updateStats();
+  });
+
+  // Enter key submits name
+  const nameInput = document.getElementById('cyclename');
+  if(nameInput) nameInput.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); const b=document.getElementById('nameSubmit'); if(b) b.click(); } });
+
+  // ensure only title visible initially
+  document.getElementById('introScreen').classList.add('hidden');
   document.getElementById('namePrompt').classList.add('hidden');
-  // show loadout
-  setText(`Cycler ${state.playerName} ready. Configure loadout.`);
+  document.getElementById('loadout').classList.remove('hidden');
+  document.getElementById('actions').classList.add('hidden');
+  showTitle();
 });
-
-// Start by showing title
-showTitle();
