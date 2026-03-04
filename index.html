@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Telemetry Lost</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div id="game">
+
+    <!-- OCULAR HEADER -->
+    <div id="header">
+      <h1>OCULAR FEED</h1>
+    </div>
+
+    <!-- MAIN TEXT DISPLAY -->
+    <div id="textBox">
+      <p id="eventText">Initializing Ocular...</p>
+    </div>
+
+    <!-- CHOICES -->
+    <div id="choices">
+      <button onclick="travel()">Travel</button>
+      <button onclick="observe()">Observe</button>
+      <button onclick="goHome()">Go Home</button>
+    </div>
+
+    <!-- STATS PANEL -->
+    <div id="stats">
+      <div>Health: <span id="healthStat">100</span></div>
+      <div>Temp: <span id="tempStat">100</span></div>
+      <div>Aggression: <span id="aggroStat">0</span></div>
+      <div>Biotokens: <span id="bioStat">0</span></div>
+    </div>
+
+  </div>
+
+  <!-- CYCLER LOG OVERLAY -->
+  <div id="cyclerOverlay" class="hidden">
+    <div id="cyclerLog"></div>
+    <button onclick="respawn()">Cycle New Instance</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
