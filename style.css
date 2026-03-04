@@ -77,25 +77,9 @@ body {
 .loadout-container { display: flex; justify-content: space-around; margin: 20px 0; }
 #suit-selection, #tool-selection { display: flex; flex-direction: column; align-items: center; }
 
-.loadout-option {
-    position: relative;
-    margin: 10px;
-}
+.loadout-option { position: relative; margin: 10px; }
 
-.option-desc {
-    display: none;
-    position: absolute;
-    bottom: 105%;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #222;
-    border: 1px solid #0F0;
-    padding: 10px;
-    width: 200px;
-    font-size: 0.8em;
-    z-index: 10;
-    pointer-events: none; 
-}
+.option-desc { display: none; position: absolute; bottom: 105%; left: 50%; transform: translateX(-50%); background-color: #222; border: 1px solid #0F0; padding: 10px; width: 200px; font-size: 0.8em; z-index: 10; pointer-events: none; }
 
 .loadout-option:hover .option-desc { display: block; }
 

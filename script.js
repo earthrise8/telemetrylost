@@ -17,11 +17,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapGrid = document.getElementById('map-grid');
     const chatLog = document.getElementById('chat-log');
     const cyclerOverlay = document.getElementById('cyclerOverlay');
-    const cyclerLogEl = document.getElementById('cyclerLog');
+    const cyclerIdLogEl = document.getElementById('cycler-id-log');
+    const failureCauseLogEl = document.getElementById('failure-cause-log');
+    const failureCodeLogEl = document.getElementById('failure-code-log');
+    const kCalsBankedLogEl = document.getElementById('kcals-banked-log');
     const cycleBtn = document.getElementById('cycleBtn');
     const storeOverlay = document.getElementById('store-overlay');
     const storeKcalsEl = document.getElementById('store-kcals');
     const storeItemsEl = document.getElementById('store-items');
+    const closeStoreBtn = document.getElementById('close-store-btn');
     const setupScreen = document.getElementById('setup-screen');
     const characterNameInput = document.getElementById('character-name-input');
     const suitSelectionContainer = document.getElementById('suit-selection');
@@ -43,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ownedItems: ['Survey', 'Thermal Cutter'],
     };
 
+    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Thermal Failure": "FC-THF-003", "Unknown": "FC-UNX-000" };
     const quadrantMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' } };
     const itemData = { 'Survey': { type: 'suit', cost: 0, desc: 'Health: 100, Temp: 100. Standard issue.' }, 'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100, Temp: 150. Better for cold zones.' }, 'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150, Temp: 100. Offers more protection.' }, 'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' }, 'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' }, 'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' } };
     const loadoutModifiers = { suits: { 'Survey': { health: 100, temperature: 100 }, 'Insulated': { health: 100, temperature: 150 }, 'Reinforced': { health: 150, temperature: 100 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
@@ -196,14 +201,26 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('mousemove',e=>{if(!mapState.isPanning)return;e.preventDefault();mapState.x=e.clientX-mapState.startX;mapState.y=e.clientY-mapState.startY;updateMap();});
         mapContainer.addEventListener('contextmenu',e=>e.preventDefault());
     }
+    
+    function handleDeath(cause) {
+        mainWrapper.classList.add('hidden');
+        cyclerOverlay.classList.remove('hidden');
+        globalState.deaths++;
+        globalState.bankedkCals += player.kCals;
+        saveGlobalState();
+
+        cyclerIdLogEl.textContent = player.name;
+        failureCauseLogEl.textContent = cause;
+        failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
+        kCalsBankedLogEl.textContent = player.kCals;
+    }
 
     // Helper functions
+    function updateStatsDisplay(){if(!player||!playerLoadout.suit)return;characterNameEl.textContent=player.name;healthEl.textContent=player.health;temperatureEl.textContent=player.temperature;kCalsEl.textContent=player.kCals;aggressionEl.textContent=player.aggression;timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;playerSuitEl.textContent=playerLoadout.suit;playerToolEl.textContent=playerLoadout.tool;if(player.health<=0||player.temperature<=0||player.kCals<=0){handleDeath(player.kCals<=0?"Starvation":player.health<=0?"Vital Signs Lost":"Thermal Failure");}}
     function standardContinue(){updateStatsDisplay();actionButtons.innerHTML='';const b=document.createElement('button');b.textContent="Continue";b.onclick=triggerEvent;actionButtons.appendChild(b);}
     function moveQuadrant(newQuadrant){if(!globalState.unlockedQuadrants.includes(newQuadrant)){globalState.unlockedQuadrants.push(newQuadrant);saveGlobalState();if(newQuadrant==='crystalCave'){addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");globalState.bankedkCals+=1500;}} advanceTime(60);currentQuadrant=newQuadrant;logEvent(`Traveling to ${quadrantMap[newQuadrant].name}...`);setTimeout(()=>{updateMap();triggerEvent();},1500);}
-    function handleDeath(cause){mainWrapper.classList.add('hidden');cyclerOverlay.classList.remove('hidden');globalState.deaths++;globalState.bankedkCals+=player.kCals;saveGlobalState();cyclerLogEl.innerHTML=`<h2>Cycler Log</h2><p>Cycler ID: ${player.name}</p><p>Cause of Failure: ${cause}</p><p>kCals Banked: ${player.kCals}</p>`;}
     function openStore(){storeKcalsEl.textContent=globalState.bankedkCals;storeItemsEl.innerHTML='';Object.entries(itemData).forEach(([name,item])=>{if(item.cost===0)return;const div=document.createElement('div');div.className='item';const btn=globalState.ownedItems.includes(name)?`<span>Owned</span>`:`<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals<item.cost?'disabled':''}>Buy (${item.cost} kCal)</button>`;div.innerHTML=`<div><strong>${name}</strong><br><em>${item.desc}</em></div>${btn}`;storeItemsEl.appendChild(div);});storeOverlay.classList.remove('hidden');}
     function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();}}
-    function updateStatsDisplay(){if(!player||!playerLoadout.suit)return;characterNameEl.textContent=player.name;healthEl.textContent=player.health;temperatureEl.textContent=player.temperature;kCalsEl.textContent=player.kCals;aggressionEl.textContent=player.aggression;timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;playerSuitEl.textContent=playerLoadout.suit;playerToolEl.textContent=playerLoadout.tool;if(player.health<=0||player.temperature<=0||player.kCals<=0){handleDeath(player.kCals<=0?"Starvation":player.health<=0?"Vital Signs Lost":"Thermal Failure");}}
     function updateMap(){mapGrid.style.transform=`translate(${mapState.x}px, ${mapState.y}px) scale(${mapState.scale})`;mapGrid.innerHTML='';for(let y=0;y<10;y++){for(let x=0;x<10;x++){const c=document.createElement('div');c.classList.add('map-cell');const l=document.createElement('div');l.classList.add('map-cell-label');let iq=false,qn=null;for(const q in quadrantMap){const d=quadrantMap[q];if(d.x===x&&d.y===y){iq=true;qn=q;break;}} if(iq&&globalState.unlockedQuadrants.includes(qn)){const d=quadrantMap[qn];c.classList.add('unlocked');l.textContent=d.name;if(qn===currentQuadrant)c.classList.add('current');if(qn==='landingZone')c.classList.add('base');} c.appendChild(l);mapGrid.appendChild(c);}}}
     function addChatMessage(sender,message){const d=document.createElement('div');d.className='chat-message';d.innerHTML=`<span class="sender">${sender}:</span> <span class="message">"${message}"</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;}
     function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger()){addChatMessage(m.sender,m.message);}})}
