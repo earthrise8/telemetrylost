@@ -2,44 +2,47 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Telemetry Lost</title>
+  <title>Last Ocular Connection</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
   <div id="game">
 
-    <!-- OCULAR HEADER -->
     <div id="header">
       <h1>OCULAR FEED</h1>
+      <div id="persistent">Banked Biotokens: <span id="bankedBio">0</span> • Deaths: <span id="deathCount">0</span></div>
     </div>
 
-    <!-- MAIN TEXT DISPLAY -->
     <div id="textBox">
-      <p id="eventText">Initializing Ocular...</p>
+      <div id="eventText">Initializing Ocular...</div>
     </div>
 
-    <!-- CHOICES -->
-    <div id="choices">
-      <button onclick="travel()">Travel</button>
-      <button onclick="observe()">Observe</button>
-      <button onclick="goHome()">Go Home</button>
+    <div id="loadout" class="panel">
+      <h3>Choose Suit</h3>
+      <div id="suitChoices"></div>
+      <h3>Choose Tool</h3>
+      <div id="toolChoices"></div>
+      <button id="startBtn">Deploy Instance</button>
     </div>
 
-    <!-- STATS PANEL -->
-    <div id="stats">
+    <div id="actions" class="panel hidden">
+      <div id="quadrantButtons"></div>
+      <div id="actionButtons"></div>
+    </div>
+
+    <div id="stats" class="panel">
       <div>Health: <span id="healthStat">100</span></div>
       <div>Temp: <span id="tempStat">100</span></div>
       <div>Aggression: <span id="aggroStat">0</span></div>
-      <div>Biotokens: <span id="bioStat">0</span></div>
+      <div>Biotokens (run): <span id="bioStat">0</span></div>
     </div>
 
   </div>
 
-  <!-- CYCLER LOG OVERLAY -->
   <div id="cyclerOverlay" class="hidden">
     <div id="cyclerLog"></div>
-    <button onclick="respawn()">Cycle New Instance</button>
+    <button id="cycleBtn">Cycle New Instance</button>
   </div>
 
   <script src="script.js"></script>
