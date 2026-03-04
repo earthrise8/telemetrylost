@@ -1,78 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Last Ocular Connection</title>
-  <link rel="stylesheet" href="style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telemetry Lost</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <button id="dev-reset-btn">WIPE LOCAL DATA</button>
 
-  <div id="game">
+    <div id="main-wrapper" class="hidden">
+        <div id="game-container">
+            <div id="ocular-interface">
+                <div id="event-text"></div>
+            </div>
+            <div id="info-panel">
+                <div id="stats-display">
+                    <p>Name: <span id="character-name"></span></p>
+                    <p>Health: <span id="health"></span></p>
+                    <p>Temperature: <span id="temperature"></span></p>
+                    <p>kCals: <span id="kcals"></span></p>
+                    <p>Aggression: <span id="aggression"></span></p>
+                    <p>Time: <span id="time"></span></p>
+                    <hr>
+                    <p>Suit: <span id="player-suit"></span></p>
+                    <p>Tool: <span id="player-tool"></span></p>
+                </div>
+                <div id="map-container">
+                    <div id="map-grid"></div>
+                </div>
+            </div>
+            <div id="action-buttons">
+                <!-- Buttons are generated here and this is now fixed -->
+            </div>
+        </div>
 
-    <div id="header">
-      <h1>OCULAR FEED</h1>
-      <div id="persistent">Banked Biotokens: <span id="bankedBio">0</span> • Deaths: <span id="deathCount">0</span></div>
+        <div id="chat-container">
+            <h2>Mission Comms</h2>
+            <div id="chat-log"></div>
+        </div>
     </div>
 
-    <div id="textBox">
-      <div id="eventText">Initializing Ocular...</div>
+    <div id="cyclerOverlay" class="hidden">
+        <div id="cyclerLog"></div>
+        <button id="cycleBtn">Continue</button>
     </div>
 
-    <div id="loadout" class="panel">
-      <div id="pixelArtHolder"><img id="pixelArt" src="" alt="pixel art placeholder"/></div>
-      <h3>Choose Suit</h3>
-      <div id="suitChoices"></div>
-      <h3>Choose Tool</h3>
-      <div id="toolChoices"></div>
-      <button id="startBtn">Deploy Instance</button>
+    <div id="store-overlay" class="hidden">
+        <div id="store-container">
+            <h2>Base Requisition</h2>
+            <p>Available kCals: <span id="store-kcals"></span></p>
+            <div id="store-items"></div>
+            <button id="close-store-btn" class="store-button">Exit</button>
+        </div>
     </div>
 
-    <div id="actions" class="panel hidden">
-      <div id="quadrantButtons"></div>
-      <div id="actionButtons"></div>
+    <div id="setup-screen">
+        <h1>Select Loadout</h1>
+        <div id="name-selection">
+            <h2>Enter Cycler ID:</h2>
+            <input type="text" id="character-name-input" placeholder="e.g., SID-849" maxlength="15">
+        </div>
+        <div class="loadout-container">
+            <div id="suit-selection">
+                <h2>Choose a Suit</h2>
+            </div>
+            <div id="tool-selection">
+                <h2>Choose a Tool</h2>
+            </div>
+        </div>
+        <button id="start-expedition-btn">Start Expedition</button>
     </div>
 
-    <div id="stats" class="panel">
-      <div>Health: <span id="healthStat">100</span></div>
-      <div>Temp: <span id="tempStat">100</span></div>
-      <div>Aggression: <span id="aggroStat">0</span></div>
-      <div>Biotokens (run): <span id="bioStat">0</span></div>
-    </div>
-
-  </div>
-
-  <div id="cyclerOverlay" class="hidden">
-    <div id="cyclerLog"></div>
-    <button id="cycleBtn">Cycle New Instance</button>
-  </div>
-
-  <!-- TITLE + INTRO -->
-  <div id="titleScreen">
-    <div id="titleCard">
-      <h2>LAST OCULAR CONNECTION</h2>
-      <p id="subtitle">An expendable survey instance explores a frozen world.</p>
-      <button id="titleStart" type="button">START</button>
-    </div>
-  </div>
-
-  <div id="introScreen" class="hidden">
-    <div id="introCard">
-      <div id="introText"></div>
-      <div id="introButtons">
-        <button id="introNext" type="button">Next</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="namePrompt" class="hidden">
-    <div id="nameCard">
-      <div>Enter Cycler Designation:</div>
-      <input id="cyclename" type="text" maxlength="20" placeholder="e.g. Unit-17" />
-      <div><button id="nameSubmit" type="button">Confirm</button></div>
-    </div>
-  </div>
-
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

@@ -1,323 +1,215 @@
-// Persistent globals (kept between deaths)
-const PERSIST_KEY = 'ocular_persist_v1';
-let persist = {
-  aggression: 0,
-  bankedBiotokens: 0,
-  deaths: 0,
-  creepersKilled: 0,
-  unlocked: { quadrants: 3, tunnel: false }
-};
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
+    const devResetBtn = document.getElementById('dev-reset-btn');
+    const mainWrapper = document.getElementById('main-wrapper');
+    const ocularInterface = document.getElementById('ocular-interface');
+    const eventText = document.getElementById('event-text');
+    const characterNameEl = document.getElementById('character-name');
+    const healthEl = document.getElementById('health');
+    const temperatureEl = document.getElementById('temperature');
+    const kCalsEl = document.getElementById('kcals');
+    const aggressionEl = document.getElementById('aggression');
+    const timeEl = document.getElementById('time');
+    const playerSuitEl = document.getElementById('player-suit');
+    const playerToolEl = document.getElementById('player-tool');
+    const actionButtons = document.getElementById('action-buttons');
+    const mapContainer = document.getElementById('map-container');
+    const mapGrid = document.getElementById('map-grid');
+    const chatLog = document.getElementById('chat-log');
+    const cyclerOverlay = document.getElementById('cyclerOverlay');
+    const cyclerLogEl = document.getElementById('cyclerLog');
+    const cycleBtn = document.getElementById('cycleBtn');
+    const storeOverlay = document.getElementById('store-overlay');
+    const storeKcalsEl = document.getElementById('store-kcals');
+    const storeItemsEl = document.getElementById('store-items');
+    const closeStoreBtn = document.getElementById('close-store-btn');
+    const setupScreen = document.getElementById('setup-screen');
+    const characterNameInput = document.getElementById('character-name-input');
+    const suitSelectionContainer = document.getElementById('suit-selection');
+    const toolSelectionContainer = document.getElementById('tool-selection');
+    const startExpeditionBtn = document.getElementById('start-expedition-btn');
 
-// Instance state (reset on respawn)
-let state = {
-  health: 100,
-  temperature: 100,
-  aggressionGain: 0,
-  runBiotokens: 0,
-  suit: null,
-  tool: null,
-  quadrant: 0,
-  mapped: new Set()
-};
+    // Game State
+    let player = {};
+    let globalState = {};
+    let playerLoadout = {};
+    let currentQuadrant = 'landingZone';
+    let gameTime = 420;
+    let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
 
-const SUITS = {
-  Survey: { tempResist: 0, hp: 0 },
-  Insulated: { tempResist: 0.25, hp: -5 },
-  Reinforced: { tempResist: -0.05, hp: 20 }
-};
+    const initialGlobalState = {
+        bankedkCals: 500,
+        deaths: 0,
+        unlockedQuadrants: ['landingZone'],
+        ownedItems: ['Survey', 'Thermal Cutter'],
+    };
 
-const TOOLS = {
-  'Thermal Cutter': { scanBonus: 1.2, combat: 0.9 },
-  'Kinetic Sidearm': { scanBonus: 1.0, combat: 1.1 },
-  'Sonic Deterrent': { scanBonus: 0.9, combat: 0.8, deter: 0.6 }
-};
+    const quadrantMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' } };
+    const itemData = { 'Survey': { type: 'suit', cost: 0, desc: 'Health: 100, Temp: 100. Standard issue.' }, 'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100, Temp: 150. Better for cold zones.' }, 'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150, Temp: 100. Offers more protection.' }, 'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' }, 'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' }, 'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' } };
+    const loadoutModifiers = { suits: { 'Survey': { health: 100, temperature: 100 }, 'Insulated': { health: 100, temperature: 150 }, 'Reinforced': { health: 150, temperature: 100 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
+    const events = {
+        landingZone: [{ text: "Base is quiet. kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "To Glacier", func: () => moveQuadrant('glacier') }, { label: "To Ice Fields", func: () => moveQuadrant('iceFields') }] }],
+        glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }, { label: "To Base", func: () => moveQuadrant('landingZone') }] }],
+        iceFields: [{ text: "Vast, flat ice fields stretch to the horizon.", actions: [{ label: "Scan the area", func: scanArea }, { label: "To Base", func: () => moveQuadrant('landingZone') }, { label: "To Crevasse", func: () => moveQuadrant('crevasse') }] }],
+        crevasse: [{ text: "A deep, dark crevasse splits the ice sheet.", actions: [{ label: "Peer into the darkness", func: scanArea }, { label: "To Ice Fields", func: () => moveQuadrant('iceFields') }] }],
+        thermalVents: [{ text: "Plumes of steam rise from cracks in the ice.", actions: [{ label: "Approach Vents", func: approachVents }, { label: "To Glacier", func: () => moveQuadrant('glacier') }] }],
+        crystalCave: [{ text: "A vast cavern of shimmering crystals.", actions: [{ label: "Collect Crystal Sample", func: collectCrystalSample }, { label: "Return to Base", func: () => moveQuadrant('landingZone') }] }]
+    };
+    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", trigger: () => globalState.deaths > 0, isComplete: () => globalState.unlockedQuadrants.includes('crystalCave') }];
 
-const QUADRANTS = ['Glacial Shelf','Abyssic Ridge','Icy Flats','Crystal Scar','Fog Basin','Sulfur Dunes'];
-
-// Event pools
-function rollEvent(qIndex){
-  // base weights
-  const pool = [];
-  pool.push('hazard');
-  pool.push('scan');
-  pool.push('creeper');
-  // tier up with quadrant index
-  if(qIndex >= 3) pool.push('rare');
-  return pool[Math.floor(Math.random()*pool.length)];
-}
-
-// --- Persistence ---
-function loadPersist(){
-  const raw = localStorage.getItem(PERSIST_KEY);
-  if(raw) Object.assign(persist, JSON.parse(raw));
-  document.getElementById('bankedBio').textContent = persist.bankedBiotokens;
-  document.getElementById('deathCount').textContent = persist.deaths;
-}
-
-function savePersist(){
-  localStorage.setItem(PERSIST_KEY, JSON.stringify(persist));
-}
-
-// --- UI helpers ---
-function setText(html){ document.getElementById('eventText').textContent = html; }
-function updateStats(){
-  document.getElementById('healthStat').textContent = Math.max(0, Math.round(state.health));
-  document.getElementById('tempStat').textContent = Math.max(0, Math.round(state.temperature));
-  document.getElementById('aggroStat').textContent = Math.round(persist.aggression + state.aggressionGain);
-  document.getElementById('bioStat').textContent = Math.round(state.runBiotokens);
-}
-
-// --- Setup UI ---
-function makeChoices(){
-  const suits = document.getElementById('suitChoices'); suits.innerHTML='';
-  Object.keys(SUITS).forEach(s=>{
-    const b=document.createElement('button'); b.textContent=s; b.onclick=()=>selectSuit(s,b);
-    suits.appendChild(b);
-  });
-  const tools = document.getElementById('toolChoices'); tools.innerHTML='';
-  Object.keys(TOOLS).forEach(t=>{
-    const b=document.createElement('button'); b.textContent=t; b.onclick=()=>selectTool(t,b);
-    tools.appendChild(b);
-  });
-  document.getElementById('startBtn').onclick=startInstance;
-}
-
-function selectSuit(name, btn){ state.suit=name; Array.from(btn.parentNode.children).forEach(x=>x.classList.remove('selected')); btn.classList.add('selected'); }
-function selectTool(name, btn){ state.tool=name; Array.from(btn.parentNode.children).forEach(x=>x.classList.remove('selected')); btn.classList.add('selected'); }
-
-function startInstance(){
-  if(!state.suit || !state.tool) return setText('Select suit and tool first.');
-  // apply suit HP modifier
-  state.health = 100 + (SUITS[state.suit].hp||0);
-  state.temperature = 100;
-  state.runBiotokens = 0;
-  state.aggressionGain = 0;
-  state.quadrant = 0;
-  state.mapped = new Set();
-  document.getElementById('loadout').classList.add('hidden');
-  document.getElementById('actions').classList.remove('hidden');
-  buildQuadrantButtons();
-  buildActionButtons();
-  setText('Instance deployed. Choose a quadrant to travel to.');
-  updateStats();
-}
-
-function buildQuadrantButtons(){
-  const cb=document.getElementById('quadrantButtons'); cb.innerHTML='';
-  for(let i=0;i<persist.unlocked.quadrants;i++){
-    const b=document.createElement('button'); b.textContent=QUADRANTS[i]; b.onclick=()=>travelTo(i);
-    cb.appendChild(b);
-  }
-}
-
-function buildActionButtons(){
-  const ab=document.getElementById('actionButtons'); ab.innerHTML='';
-  ['Observe','Scan','Evade','Engage','Return'].forEach(a=>{
-    const b=document.createElement('button'); b.textContent=a; b.onclick=()=>handleAction(a.toLowerCase()); ab.appendChild(b);
-  });
-}
-
-// --- Actions and event resolution ---
-function travelTo(index){
-  state.quadrant=index;
-  state.mapped.add(index);
-  const ev=rollEvent(index);
-  if(ev==='hazard') hazardEvent(index);
-  else if(ev==='scan') scanEvent(index);
-  else if(ev==='creeper') creeperEncounter(index);
-  else rareEvent(index);
-  postTick();
-}
-
-function handleAction(action){
-  if(action==='observe'){ observeAction(); }
-  else if(action==='scan'){ scanEvent(state.quadrant); }
-  else if(action==='evade'){ evadeAction(); }
-  else if(action==='engage'){ engageAction(); }
-  else if(action==='return'){ returnToBase(); }
-}
-
-function hazardEvent(q){
-  const baseDamage = 15 + q*5;
-  const tempLoss = 10 + q*5 - (SUITS[state.suit].tempResist||0)*30;
-  state.health -= baseDamage * (Math.random()*0.6+0.7);
-  state.temperature -= tempLoss*(Math.random()*0.8+0.6);
-  setText(`Environmental hazard in ${QUADRANTS[q]}. Systems degraded.`);
-}
-
-function scanEvent(q){
-  const tool = TOOLS[state.tool];
-  const gain = Math.round(3 * (tool.scanBonus||1) * (1 + q*0.2));
-  state.runBiotokens += gain;
-  setText(`Scan successful in ${QUADRANTS[q]}. Biotokens +${gain}.`);
-}
-
-function creeperEncounter(q){
-  // chance of aggressive response influenced by persist.aggression
-  const base = 0.4 + persist.aggression*0.06;
-  if(Math.random() < base){
-    // hostile
-    setText(`A native creeper attacks in ${QUADRANTS[q]}! Choose: Evade or Engage.`);
-    // store encounter state
-    state.lastEncounter = { type:'creeper', q };
-  } else {
-    setText(`A native entity observed in ${QUADRANTS[q]}. It watches cautiously.`);
-    // observation reduces aggression
-    persist.aggression = Math.max(0, persist.aggression - 0.5);
-  }
-}
-
-function rareEvent(q){
-  const gain = 10 + Math.round(q*3);
-  state.runBiotokens += gain;
-  setText(`Unusual find: intact bio-structure. Biotokens +${gain}.`);
-}
-
-function observeAction(){
-  if(state.lastEncounter && state.lastEncounter.type==='creeper'){
-    setText('You observe the native, collect behavioral data. Aggression decreases.');
-    persist.aggression = Math.max(0, persist.aggression - 1);
-    state.runBiotokens += 2;
-    state.lastEncounter = null;
-  } else {
-    setText('Careful observation of the environment.');
-    state.runBiotokens += 1;
-  }
-}
-
-function evadeAction(){
-  if(state.lastEncounter && state.lastEncounter.type==='creeper'){
-    const chance = 0.7 - (persist.aggression*0.02) + (SUITS[state.suit].tempResist||0)*0.1;
-    if(Math.random() < chance){ setText('Evaded contact successfully.'); persist.aggression = Math.max(0, persist.aggression - 0.2); }
-    else { setText('Evade failed; you take damage.'); state.health -= 20; }
-    state.lastEncounter = null;
-  } else { setText('No immediate threat to evade.'); }
-}
-
-function engageAction(){
-  if(state.lastEncounter && state.lastEncounter.type==='creeper'){
-    const tool = TOOLS[state.tool];
-    const chanceKill = (tool.combat||1) * (0.5 + Math.random()*0.5);
-    if(Math.random() < chanceKill){
-      setText('Engagement succeeded. Creeper neutralized.');
-      persist.creepersKilled += 1; persist.aggression += 1.5; state.runBiotokens += 3; state.lastEncounter=null;
-    } else {
-      setText('Engagement failed; you were injured escaping.'); state.health -= 30; persist.aggression += 0.8; state.lastEncounter=null;
+    // --- Core Functions ---
+    function init() {
+        loadGlobalState();
+        setupEventListeners();
+        showSetupScreen();
+        updateMap();
     }
-  } else { setText('No target to engage.'); }
-}
 
-function returnToBase(){
-  persist.bankedBiotokens += Math.round(state.runBiotokens);
-  state.runBiotokens = 0;
-  // unlock rule: mapping all unlocked quadrants opens tunnel
-  state.mapped.forEach(i=>persist.unlocked[i]=true);
-  if(persist.unlocked.quadrants === QUADRANTS.length) persist.unlocked.tunnel = true;
-  savePersist();
-  setText('Returned to base. Biotokens banked. Instance cycled.');
-  // cycle instance without counting as death
-  resetInstance(false);
-}
+    function resetGameData() {
+        if (confirm("Are you sure? This will wipe all local progress.")) {
+            localStorage.removeItem('telemetryLostGlobalState');
+            location.reload();
+        }
+    }
 
-function postTick(){
-  // natural temp decay
-  state.temperature -= 0.5;
-  // check death
-  if(state.health <= 0 || state.temperature <= 0){
-    handleDeath(); return;
-  }
-  updateStats();
-}
+    function loadGlobalState() {
+        const savedState = localStorage.getItem('telemetryLostGlobalState');
+        globalState = savedState ? JSON.parse(savedState) : JSON.parse(JSON.stringify(initialGlobalState));
+    }
 
-// --- Death and respawn ---
-function handleDeath(){
-  persist.deaths += 1;
-  savePersist();
-  document.getElementById('cyclerOverlay').classList.remove('hidden');
-  const cause = state.temperature <=0 ? 'Hypothermia' : (state.health<=0 ? 'Traumatic Injury' : 'Unknown');
-  const log = `CYCLER LOG ENTRY\n\nLast Ocular Connection: ${QUADRANTS[state.quadrant] || 'Unknown'}\nLoadout: ${state.suit} / ${state.tool}\nVital Drop Cause: ${cause}\nAggression Index: ${Math.round(persist.aggression)}\nCreepers Killed: ${persist.creepersKilled}\n\nCycling new instance...`;
-  document.getElementById('cyclerLog').textContent = log;
-  document.getElementById('cycleBtn').onclick = respawn;
-  updateStats();
-}
+    function saveGlobalState() {
+        localStorage.setItem('telemetryLostGlobalState', JSON.stringify(globalState));
+    }
 
-function respawn(){ resetInstance(true); }
+    function showSetupScreen() {
+        mainWrapper.classList.add('hidden');
+        cyclerOverlay.classList.add('hidden');
+        storeOverlay.classList.add('hidden');
+        setupScreen.classList.remove('hidden');
+        characterNameInput.value = "";
 
-function resetInstance(asDeath){
-  // preserve persistent values
-  state = { health:100, temperature:100, aggressionGain:0, runBiotokens:0, suit:null, tool:null, quadrant:0, mapped:new Set() };
-  document.getElementById('cyclerOverlay').classList.add('hidden');
-  document.getElementById('loadout').classList.remove('hidden');
-  document.getElementById('actions').classList.add('hidden');
-  makeChoices();
-  loadPersist();
-  setText(asDeath? 'New instance deployed. Learn and adapt.' : 'Instance ready. Configure loadout.');
-  updateStats();
-}
+        playerLoadout = {
+            suit: globalState.ownedItems.includes('Survey') ? 'Survey' : null,
+            tool: globalState.ownedItems.includes('Thermal Cutter') ? 'Thermal Cutter' : null,
+        };
 
-// --- Init & Title / Intro / Name flow ---
-const INTRO_PAGES = [
-  "You are an expendable survey instance, dispatched to map an uncharted frozen world.",
-  "Your creators bank biotokens for returned data. Deaths are expected. Learn and adapt.",
-  "Choose your designation in the cycler, choose a suit and tool, then deploy."
-];
+        suitSelectionContainer.innerHTML = '<h2>Choose a Suit</h2>';
+        toolSelectionContainer.innerHTML = '<h2>Choose a Tool</h2>';
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  // ensure UI initial state
-  loadPersist();
-  makeChoices();
-  updateStats();
-  setText('Welcome to Last Ocular Connection. Configure suit and tool.');
+        Object.entries(itemData).forEach(([itemName, itemDef]) => {
+            const container = itemDef.type === 'suit' ? suitSelectionContainer : toolSelectionContainer;
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'loadout-option';
+            const isOwned = globalState.ownedItems.includes(itemName);
+            const button = document.createElement('button');
+            button.className = `${itemDef.type}-btn`;
+            button.dataset[itemDef.type] = itemName;
+            button.textContent = itemName;
+            button.disabled = !isOwned;
+            if ((itemDef.type === 'suit' && playerLoadout.suit === itemName) || (itemDef.type === 'tool' && playerLoadout.tool === itemName)) {
+                button.classList.add('selected');
+            }
+            const desc = document.createElement('div');
+            desc.className = 'option-desc';
+            desc.textContent = itemDef.desc + (!isOwned ? ` (Not Owned)` : ``);
+            optionDiv.appendChild(button);
+            optionDiv.appendChild(desc);
+            container.appendChild(optionDiv);
+        });
+    }
 
-  // screen helpers
-  function showTitle(){ document.getElementById('titleScreen').classList.remove('hidden'); }
-  function hideTitle(){ document.getElementById('titleScreen').classList.add('hidden'); }
+    function selectSuit(e) {
+        playerLoadout.suit = e.target.dataset.suit;
+        document.querySelectorAll('.suit-btn').forEach(btn => btn.classList.remove('selected'));
+        e.target.classList.add('selected');
+    }
 
-  // wire title/start
-  const titleBtn = document.getElementById('titleStart');
-  if(titleBtn) titleBtn.addEventListener('click', ()=>{ hideTitle(); startIntro(); });
+    function selectTool(e) {
+        playerLoadout.tool = e.target.dataset.tool;
+        document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('selected'));
+        e.target.classList.add('selected');
+    }
 
-  // intro flow
-  let introIndex = 0;
-  function startIntro(){
-    introIndex = 0;
-    const introEl = document.getElementById('introText'); if(introEl) introEl.textContent = INTRO_PAGES[introIndex];
-    document.getElementById('introScreen').classList.remove('hidden');
-  }
-  const introNext = document.getElementById('introNext');
-  if(introNext) introNext.addEventListener('click', ()=>{
-    introIndex++;
-    if(introIndex < INTRO_PAGES.length){ document.getElementById('introText').textContent = INTRO_PAGES[introIndex]; }
-    else { document.getElementById('introScreen').classList.add('hidden'); showNamePrompt(); }
-  });
+    function startExpedition() {
+        if (!playerLoadout.suit || !playerLoadout.tool || !characterNameInput.value) {
+            alert("Please enter a Cycler ID and select an owned suit and tool.");
+            return;
+        }
 
-  // name prompt
-  function showNamePrompt(){
-    document.getElementById('namePrompt').classList.remove('hidden');
-    const input = document.getElementById('cyclename'); if(input) input.focus();
-  }
+        setupScreen.classList.add('hidden');
+        mainWrapper.classList.remove('hidden');
 
-  const nameBtn = document.getElementById('nameSubmit');
-  if(nameBtn) nameBtn.addEventListener('click', (e)=>{
-    if(e && e.preventDefault) e.preventDefault();
-    const raw = document.getElementById('cyclename').value.trim() || 'Unit';
-    const designation = `${raw}-${Math.max(0,persist.deaths)}`;
-    state.playerName = designation;
-    document.getElementById('namePrompt').classList.add('hidden');
-    document.getElementById('loadout').classList.remove('hidden');
-    document.getElementById('actions').classList.add('hidden');
-    setText(`Cycler ${state.playerName} ready. Configure loadout.`);
-    updateStats();
-  });
+        player = { name: characterNameInput.value, health: loadoutModifiers.suits[playerLoadout.suit].health, temperature: loadoutModifiers.suits[playerLoadout.suit].temperature, kCals: 2000, aggression: 0 };
+        gameTime = 420;
+        currentQuadrant = 'landingZone';
 
-  // Enter key submits name
-  const nameInput = document.getElementById('cyclename');
-  if(nameInput) nameInput.addEventListener('keydown', (ev)=>{ if(ev.key === 'Enter'){ ev.preventDefault(); const b=document.getElementById('nameSubmit'); if(b) b.click(); } });
+        chatLog.innerHTML = '';
+        addChatMessage("Mission Control", `Welcome, Cycler ${player.name}. Explore, gather data, stay alive.`);
+        checkMissions();
+        updateMap();
+        updateStatsDisplay();
+        triggerEvent();
+    }
 
-  // ensure only title visible initially
-  document.getElementById('introScreen').classList.add('hidden');
-  document.getElementById('namePrompt').classList.add('hidden');
-  document.getElementById('loadout').classList.remove('hidden');
-  document.getElementById('actions').classList.add('hidden');
-  showTitle();
+    function logEvent(text) {
+        eventText.innerHTML = text;
+        actionButtons.innerHTML = '';
+    }
+
+    function triggerEvent() {
+        advanceTime(10);
+        const eventPool = events[currentQuadrant] || [];
+        const event = eventPool.length > 0 ? eventPool[Math.floor(Math.random() * eventPool.length)] : { text: "The area is quiet.", actions: [{ label: "Scan Area", func: scanArea }] };
+
+        if (currentQuadrant === 'landingZone' && player.kCals > 0) {
+            globalState.bankedkCals += player.kCals;
+            player.kCals = 0;
+            saveGlobalState();
+            logEvent(`kCals banked. Current total: ${globalState.bankedkCals}. ${event.text}`);
+        } else {
+            logEvent(event.text);
+        }
+
+        event.actions.forEach(action => {
+            const button = document.createElement('button');
+            button.textContent = action.label;
+            button.onclick = action.func;
+            actionButtons.appendChild(button);
+        });
+        updateStatsDisplay();
+    }
+
+    function setupEventListeners() {
+        devResetBtn.addEventListener('click', resetGameData);
+        startExpeditionBtn.addEventListener('click', startExpedition);
+        cycleBtn.addEventListener('click', () => location.reload());
+        closeStoreBtn.addEventListener('click', closeStore);
+        suitSelectionContainer.addEventListener('click', e => e.target.matches('.suit-btn') && selectSuit(e));
+        toolSelectionContainer.addEventListener('click', e => e.target.matches('.tool-btn') && selectTool(e));
+        mapContainer.addEventListener('wheel',e=>{e.preventDefault();mapState.scale+=e.deltaY*-0.001;mapState.scale=Math.min(Math.max(0.5,mapState.scale),4);updateMap();});
+        mapContainer.addEventListener('mousedown',e=>{if(e.button!==2)return;e.preventDefault();mapState.isPanning=true;mapContainer.style.cursor='grabbing';mapState.startX=e.clientX-mapState.x;mapState.startY=e.clientY-mapState.y;});
+        window.addEventListener('mouseup',e=>{if(e.button!==2||!mapState.isPanning)return;mapState.isPanning=false;mapContainer.style.cursor='grab';});
+        window.addEventListener('mousemove',e=>{if(!mapState.isPanning)return;e.preventDefault();mapState.x=e.clientX-mapState.startX;mapState.y=e.clientY-mapState.startY;updateMap();});
+        mapContainer.addEventListener('contextmenu',e=>e.preventDefault());
+    }
+
+    // Helper functions
+    function standardContinue(){updateStatsDisplay();actionButtons.innerHTML='';const b=document.createElement('button');b.textContent="Continue";b.onclick=triggerEvent;actionButtons.appendChild(b);}
+    function moveQuadrant(newQuadrant){if(!globalState.unlockedQuadrants.includes(newQuadrant)){globalState.unlockedQuadrants.push(newQuadrant);saveGlobalState();if(newQuadrant==='crystalCave'){addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");globalState.bankedkCals+=1500;}} advanceTime(60);currentQuadrant=newQuadrant;logEvent(`Traveling to ${quadrantMap[newQuadrant].name}...`);setTimeout(()=>{updateMap();triggerEvent();},1500);}
+    function handleDeath(cause){mainWrapper.classList.add('hidden');cyclerOverlay.classList.remove('hidden');globalState.deaths++;globalState.bankedkCals+=player.kCals;saveGlobalState();cyclerLogEl.innerHTML=`<h2>Cycler Log</h2><p>Cycler ID: ${player.name}</p><p>Cause of Failure: ${cause}</p><p>kCals Banked: ${player.kCals}</p>`;}
+    function openStore(){storeKcalsEl.textContent=globalState.bankedkCals;storeItemsEl.innerHTML='';Object.entries(itemData).forEach(([name,item])=>{if(item.cost===0)return;const div=document.createElement('div');div.className='item';const btn=globalState.ownedItems.includes(name)?`<span>Owned</span>`:`<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals<item.cost?'disabled':''}>Buy (${item.cost} kCal)</button>`;div.innerHTML=`<div><strong>${name}</strong><br><em>${item.desc}</em></div>${btn}`;storeItemsEl.appendChild(div);});storeOverlay.classList.remove('hidden');}
+    function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();}}
+    function updateStatsDisplay(){if(!player||!playerLoadout.suit)return;characterNameEl.textContent=player.name;healthEl.textContent=player.health;temperatureEl.textContent=player.temperature;kCalsEl.textContent=player.kCals;aggressionEl.textContent=player.aggression;timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;playerSuitEl.textContent=playerLoadout.suit;playerToolEl.textContent=playerLoadout.tool;if(player.health<=0||player.temperature<=0||player.kCals<=0){handleDeath(player.kCals<=0?"Starvation":player.health<=0?"Vital Signs Lost":"Thermal Failure");}}
+    function updateMap(){mapGrid.style.transform=`translate(${mapState.x}px, ${mapState.y}px) scale(${mapState.scale})`;mapGrid.innerHTML='';for(let y=0;y<10;y++){for(let x=0;x<10;x++){const c=document.createElement('div');c.classList.add('map-cell');const l=document.createElement('div');l.classList.add('map-cell-label');let iq=false,qn=null;for(const q in quadrantMap){const d=quadrantMap[q];if(d.x===x&&d.y===y){iq=true;qn=q;break;}} if(iq&&globalState.unlockedQuadrants.includes(qn)){const d=quadrantMap[qn];c.classList.add('unlocked');l.textContent=d.name;if(qn===currentQuadrant)c.classList.add('current');if(qn==='landingZone')c.classList.add('base');} c.appendChild(l);mapGrid.appendChild(c);}}}
+    function addChatMessage(sender,message){const d=document.createElement('div');d.className='chat-message';d.innerHTML=`<span class="sender">${sender}:</span> <span class="message">"${message}"</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;}
+    function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger()){addChatMessage(m.sender,m.message);}})}
+    function closeStore(){storeOverlay.classList.add('hidden');}
+    function advanceTime(minutes){gameTime+=minutes;updateStatsDisplay();}
+    function scanArea(){logEvent("Scanning... found a patch of edible lichen. +50 kCals.");player.kCals+=50;standardContinue();}
+    function approachVents(){logEvent("The warmth is inviting. Temp +20.");player.temperature=Math.min(player.temperature+20,loadoutModifiers.suits[playerLoadout.suit].temperature);standardContinue();}
+    function collectCrystalSample(){logEvent("You carefully extract a crystal. It pulses with a soft light. +300 kCals.");player.kCals+=300;standardContinue();}
+    
+    window.telemetryGame = { buyItem };
+
+    init();
 });
