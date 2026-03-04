@@ -260,3 +260,41 @@ loadPersist();
 makeChoices();
 setText('Welcome to Last Ocular Connection. Configure suit and tool.');
 updateStats();
+
+// --- Title / Intro / Name flow ---
+const INTRO_PAGES = [
+  "You are an expendable survey instance, dispatched to map an uncharted frozen world.",
+  "Your creators bank biotokens for returned data. Deaths are expected. Learn and adapt.",
+  "Choose your designation in the cycler, choose a suit and tool, then deploy."
+];
+
+function showTitle(){ document.getElementById('titleScreen').classList.remove('hidden'); }
+function hideTitle(){ document.getElementById('titleScreen').classList.add('hidden'); }
+
+document.getElementById('titleStart').addEventListener('click', ()=>{
+  hideTitle(); startIntro();
+});
+
+let introIndex = 0;
+function startIntro(){
+  introIndex = 0; document.getElementById('introText').textContent = INTRO_PAGES[introIndex];
+  document.getElementById('introScreen').classList.remove('hidden');
+}
+
+document.getElementById('introNext').addEventListener('click', ()=>{
+  introIndex++;
+  if(introIndex < INTRO_PAGES.length){ document.getElementById('introText').textContent = INTRO_PAGES[introIndex]; }
+  else { document.getElementById('introScreen').classList.add('hidden'); showNamePrompt(); }
+});
+
+function showNamePrompt(){ document.getElementById('namePrompt').classList.remove('hidden'); }
+document.getElementById('nameSubmit').addEventListener('click', ()=>{
+  const name = document.getElementById('cyclename').value.trim() || 'Unit-01';
+  state.playerName = name;
+  document.getElementById('namePrompt').classList.add('hidden');
+  // show loadout
+  setText(`Cycler ${state.playerName} ready. Configure loadout.`);
+});
+
+// Start by showing title
+showTitle();

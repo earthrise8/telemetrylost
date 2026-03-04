@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Last Ocular Connection</title>
   <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -19,6 +20,7 @@
     </div>
 
     <div id="loadout" class="panel">
+      <div id="pixelArtHolder"><img id="pixelArt" src="" alt="pixel art placeholder"/></div>
       <h3>Choose Suit</h3>
       <div id="suitChoices"></div>
       <h3>Choose Tool</h3>
@@ -43,6 +45,32 @@
   <div id="cyclerOverlay" class="hidden">
     <div id="cyclerLog"></div>
     <button id="cycleBtn">Cycle New Instance</button>
+  </div>
+
+  <!-- TITLE + INTRO -->
+  <div id="titleScreen">
+    <div id="titleCard">
+      <h2>LAST OCULAR CONNECTION</h2>
+      <p id="subtitle">An expendable survey instance explores a frozen world.</p>
+      <button id="titleStart">START</button>
+    </div>
+  </div>
+
+  <div id="introScreen" class="hidden">
+    <div id="introCard">
+      <div id="introText"></div>
+      <div id="introButtons">
+        <button id="introNext">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="namePrompt" class="hidden">
+    <div id="nameCard">
+      <div>Enter Cycler Designation:</div>
+      <input id="cyclename" type="text" maxlength="20" placeholder="e.g. Unit-17" />
+      <div><button id="nameSubmit">Confirm</button></div>
+    </div>
   </div>
 
   <script src="script.js"></script>
