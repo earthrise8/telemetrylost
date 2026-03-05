@@ -6,14 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventText = document.getElementById('event-text');
     const characterNameEl = document.getElementById('character-name');
     const healthEl = document.getElementById('health');
-    const temperatureEl = document.getElementById('temperature');
     const kCalsEl = document.getElementById('kcals');
     const energyEl = document.getElementById('energy');
-    const aggressionEl = document.getElementById('aggression');
     const timeEl = document.getElementById('time');
     const playerSuitEl = document.getElementById('player-suit');
     const playerToolEl = document.getElementById('player-tool');
-    const backpackEl = document.getElementById('backpack-items');
     const actionButtons = document.getElementById('action-buttons');
     const mapContainer = document.getElementById('map-container');
     const mapGrid = document.getElementById('map-grid');
@@ -49,20 +46,22 @@ document.addEventListener('DOMContentLoaded', () => {
         ownedItems: ['Survey', 'Thermal Cutter'],
     };
 
-    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Thermal Failure": "FC-THF-003", "Exhaustion": "FC-EXH-004", "Unknown": "FC-UNX-000" };
+    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Unknown": "FC-UNX-000" };
     const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
     const itemData = {
-        'Survey': { type: 'suit', cost: 0, desc: 'Health: 100, Temp: 100. Standard issue.' },
-        'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100, Temp: 150. Better for cold zones.' },
-        'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150, Temp: 100. Offers more protection.' },
+        'Survey': { type: 'suit', cost: 0, desc: 'Health: 100. Standard issue.' },
+        'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100. Better insulation for cold zones.' },
+        'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150. Offers more protection.' },
         'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' },
         'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' },
         'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' },
         'Geological Scanner': { type: 'sample', sell: 200, desc: 'Data on rock composition.' },
         'Ice Core Sample': { type: 'sample', sell: 150, desc: 'A pristine ice core.' },
-        'Alien Microbe': { type: 'sample', sell: 500, desc: 'A potentially groundbreaking discovery.' }
+        'Alien Microbe': { type: 'sample', sell: 500, desc: 'A potentially groundbreaking discovery.' },
+        'Strange Artifact': { type: 'misc', desc: 'A strange, pulsating artifact. It feels warm to the touch.' },
+        'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' }
     };
-    const loadoutModifiers = { suits: { 'Survey': { health: 100, temperature: 100 }, 'Insulated': { health: 100, temperature: 150 }, 'Reinforced': { health: 150, temperature: 100 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
+    const loadoutModifiers = { suits: { 'Survey': { health: 100 }, 'Insulated': { health: 100 }, 'Reinforced': { health: 150 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
     const events = {
         landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "Sleep", func: sleep }] }],
         glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }] }],
@@ -152,10 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
         player = { 
             name: characterNameInput.value, 
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
-            temperature: loadoutModifiers.suits[playerLoadout.suit].temperature, 
             kCals: 5000, 
             energy: 100,
-            aggression: 0,
             backpack: []
         };
         gameTime = 420;
@@ -229,6 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButtons.appendChild(button);
             });
         }
+        
+        const backpackButton = document.createElement('button');
+        backpackButton.textContent = "Backpack";
+        backpackButton.onclick = openBackpack;
+        actionButtons.appendChild(backpackButton);
+
         updateStatsDisplay();
     }
 
@@ -281,35 +284,62 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!player||!playerLoadout.suit)return;
         characterNameEl.textContent=player.name;
         healthEl.textContent=player.health;
-        temperatureEl.textContent=player.temperature;
         kCalsEl.textContent=player.kCals;
         energyEl.textContent = player.energy;
-        aggressionEl.textContent=player.aggression;
         timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
         playerSuitEl.textContent=playerLoadout.suit;
         playerToolEl.textContent=playerLoadout.tool;
-        updateBackpackDisplay();
-        if(player.health<=0||player.temperature<=0){handleDeath(player.health<=0?"Vital Signs Lost":"Thermal Failure");}
+        if(player.health<=0){handleDeath("Vital Signs Lost");}
         if (player.energy <= 0) { handleDeath("Exhaustion"); }
         if (player.energy < 5) {
             addChatMessage("Mission Control", "Energy levels critical. Return to base for recovery.");
         }
     }
 
-    function updateBackpackDisplay() {
-        if (!backpackEl) return; 
-        backpackEl.innerHTML = '';
+    function openBackpack() {
+        let backpackContent = "Your backpack contains:\n";
         if (player.backpack && player.backpack.length > 0) {
             const items = {};
             player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
-            for(const item in items) {
-                const li = document.createElement('li');
-                li.textContent = `${item} (x${items[item]})`;
-                backpackEl.appendChild(li);
+            for (const itemName in items) {
+                backpackContent += `\n- ${itemName} (x${items[itemName]})`;
             }
         } else {
-            backpackEl.innerHTML = '<li>Empty</li>';
+            backpackContent = "Your backpack is empty.";
         }
+
+        eventText.innerHTML = backpackContent.replace(/\n/g, '<br>');
+        actionButtons.innerHTML = '';
+
+        if (player.backpack && player.backpack.length > 0) {
+            const items = {};
+            player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
+            for (const itemName in items) {
+                const button = document.createElement('button');
+                button.textContent = `Inspect ${itemName}`;
+                button.onclick = () => {
+                    const itemDef = itemData[itemName];
+                    if (itemDef) {
+                        eventText.innerHTML = itemDef.desc;
+                        actionButtons.innerHTML = '';
+                        const backButton = document.createElement('button');
+                        backButton.textContent = 'Back to Backpack';
+                        backButton.onclick = openBackpack;
+                        actionButtons.appendChild(backButton);
+                        const closeButton = document.createElement('button');
+                        closeButton.textContent = 'Close';
+                        closeButton.onclick = triggerEvent;
+                        actionButtons.appendChild(closeButton);
+                    }
+                };
+                actionButtons.appendChild(button);
+            }
+        }
+
+        const backButton = document.createElement('button');
+        backButton.textContent = 'Back';
+        backButton.onclick = triggerEvent;
+        actionButtons.appendChild(backButton);
     }
 
     function standardContinue(){
@@ -391,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (isCurrent) { cell.classList.add('current'); }
 
-                if (isExplored) {
+                if (.isExplored) {
                     cell.classList.add('unlocked');
                     if (poiKey) {
                         cell.classList.add('poi');
@@ -423,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let message = "Scanning... nothing of interest in the immediate vicinity. The wind howls.";
         player.energy -= 2;
         if (Math.random() < 0.2) { // 20% chance to find something
-            const foundItem = ['Geological Scanner', 'Ice Core Sample'][Math.floor(Math.random() * 2)];
+            const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Strange Artifact', 'Damaged Logbook'][Math.floor(Math.random() * 4)];
             if(player.backpack) player.backpack.push(foundItem);
             message = `Scanning... your device chirps. You've found a ${foundItem}.`;
         }
@@ -431,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         standardContinue();
     }
 
-    function approachVents(){logEvent("The warmth is inviting. Temp +20.");player.temperature=Math.min(player.temperature+20,loadoutModifiers.suits[playerLoadout.suit].temperature);standardContinue();}
+    function approachVents(){logEvent("The warmth is inviting, but it offers no real benefit.");standardContinue();}
     
     function collectCrystalSample(){
         let message = "You carefully extract a crystal. It pulses with a soft light. +300 kCals.";
