@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const healthEl = document.getElementById('health');
     const temperatureEl = document.getElementById('temperature');
     const kCalsEl = document.getElementById('kcals');
+    const energyEl = document.getElementById('energy');
     const aggressionEl = document.getElementById('aggression');
     const timeEl = document.getElementById('time');
     const playerSuitEl = document.getElementById('player-suit');
@@ -48,8 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ownedItems: ['Survey', 'Thermal Cutter'],
     };
 
-    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Thermal Failure": "FC-THF-003", "Unknown": "FC-UNX-000" };
-    const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' } };
+    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Thermal Failure": "FC-THF-003", "Exhaustion": "FC-EXH-004", "Unknown": "FC-UNX-000" };
+    const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
     const itemData = {
         'Survey': { type: 'suit', cost: 0, desc: 'Health: 100, Temp: 100. Standard issue.' },
         'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100, Temp: 150. Better for cold zones.' },
@@ -63,15 +64,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadoutModifiers = { suits: { 'Survey': { health: 100, temperature: 100 }, 'Insulated': { health: 100, temperature: 150 }, 'Reinforced': { health: 150, temperature: 100 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
     const events = {
-        landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }] }],
+        landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "Sleep", func: sleep }] }],
         glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }] }],
         iceFields: [{ text: "Vast, flat ice fields stretch to the horizon.", actions: [{ label: "Scan the area", func: scanArea }] }],
         crevasse: [{ text: "A deep, dark crevasse splits the ice sheet.", actions: [{ label: "Peer into the darkness", func: scanArea }] }],
         thermalVents: [{ text: "Plumes of steam rise from cracks in the ice.", actions: [{ label: "Approach Vents", func: approachVents }] }],
         crystalCave: [{ text: "A vast cavern of shimmering crystals.", actions: [{ label: "Collect Crystal Sample", func: collectCrystalSample }] }],
+        boulderPass: [{ text: "A massive boulder blocks the path.", actions: [{ label: "Clear Boulder", func: clearBoulder }] }],
         wasteland: [{ text: "A vast, snowy wasteland stretches in all directions.", actions: [{ label: "Scan Area", func: scanArea }] }]
     };
-    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", trigger: () => globalState.deaths > 0, isComplete: () => globalState.exploredTiles.includes('1,8') }];
+    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", coords: {x: 1, y: 8}, trigger: () => globalState.deaths > 0, isComplete: () => globalState.exploredTiles.includes('1,8') }];
 
     function getPoiKeyByCoords(x, y) { return Object.keys(poiMap).find(key => poiMap[key].x === x && poiMap[key].y === y); }
 
@@ -152,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
             temperature: loadoutModifiers.suits[playerLoadout.suit].temperature, 
             kCals: 5000, 
+            energy: 100,
             aggression: 0,
             backpack: []
         };
@@ -280,12 +283,17 @@ document.addEventListener('DOMContentLoaded', () => {
         healthEl.textContent=player.health;
         temperatureEl.textContent=player.temperature;
         kCalsEl.textContent=player.kCals;
+        energyEl.textContent = player.energy;
         aggressionEl.textContent=player.aggression;
         timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
         playerSuitEl.textContent=playerLoadout.suit;
         playerToolEl.textContent=playerLoadout.tool;
         updateBackpackDisplay();
         if(player.health<=0||player.temperature<=0){handleDeath(player.health<=0?"Vital Signs Lost":"Thermal Failure");}
+        if (player.energy <= 0) { handleDeath("Exhaustion"); }
+        if (player.energy < 5) {
+            addChatMessage("Mission Control", "Energy levels critical. Return to base for recovery.");
+        }
     }
 
     function updateBackpackDisplay() {
@@ -335,6 +343,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const newCoordString = `${x},${y}`;
         const isFirstVisit = !globalState.exploredTiles.includes(newCoordString);
         
+        player.energy -= 5;
+
         if (isFirstVisit) {
             globalState.exploredTiles.push(newCoordString);
             const poiKey = getPoiKeyByCoords(x, y);
@@ -365,6 +375,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateMap() {
         mapGrid.style.transform = `translate(${mapState.x}px, ${mapState.y}px) scale(${mapState.scale})`;
         mapGrid.innerHTML = '';
+        const activeMission = missions.find(m => !m.isComplete() && m.trigger());
+
         for (let y = 0; y < 10; y++) {
             for (let x = 0; x < 10; x++) {
                 const cell = document.createElement('div');
@@ -391,6 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     label.textContent = '?';
                 }
+
+                if (activeMission && activeMission.coords && x === activeMission.coords.x && y === activeMission.coords.y) {
+                    cell.classList.add('mission-objective');
+                }
                 
                 cell.appendChild(label);
                 mapGrid.appendChild(cell);
@@ -405,12 +421,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function scanArea() {
         let message = "Scanning... nothing of interest in the immediate vicinity. The wind howls.";
+        player.energy -= 2;
         if (Math.random() < 0.2) { // 20% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample'][Math.floor(Math.random() * 2)];
             if(player.backpack) player.backpack.push(foundItem);
             message = `Scanning... your device chirps. You've found a ${foundItem}.`;
         }
-        logEvent(message);
+        logEvent(message + " (-2 Energy)");
         standardContinue();
     }
 
@@ -419,12 +436,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function collectCrystalSample(){
         let message = "You carefully extract a crystal. It pulses with a soft light. +300 kCals.";
         player.kCals += 300;
+        player.energy -= 10;
         if (Math.random() < 0.5) { // 50% chance to get a special sample
             if(player.backpack) player.backpack.push('Alien Microbe');
             message += " You manage to secure a sample containing a strange, resilient microbe.";
         }
-        logEvent(message);
+        logEvent(message + " (-10 Energy)");
         standardContinue();
+    }
+
+    function sleep() {
+        const sleepHours = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
+        const energyGained = sleepHours * 10;
+        player.energy = Math.min(100, player.energy + energyGained);
+        advanceTime(sleepHours * 60);
+        logEvent(`You sleep for ${sleepHours} hours and recover ${energyGained} energy. You feel rested.`);
+        standardContinue();
+    }
+
+    function clearBoulder() {
+        const energyCost = 25;
+        if (player.energy > energyCost) {
+            player.energy -= energyCost;
+            logEvent(`You spend a significant amount of energy and clear the boulder. (-${energyCost} Energy)`);
+            events.boulderPass = [{ text: "The path you cleared previously.", actions: [] }];
+            standardContinue();
+        } else {
+            logEvent("You don't have enough energy to clear the boulder. You need at least 25 energy.");
+            standardContinue();
+        }
     }
     
     window.telemetryGame = { buyItem };
