@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timeEl = document.getElementById('time');
     const playerSuitEl = document.getElementById('player-suit');
     const playerToolEl = document.getElementById('player-tool');
+    const backpackEl = document.getElementById('backpack-items');
     const actionButtons = document.getElementById('action-buttons');
     const mapContainer = document.getElementById('map-container');
     const mapGrid = document.getElementById('map-grid');
@@ -226,12 +227,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButtons.appendChild(button);
             });
         }
-        
         const backpackButton = document.createElement('button');
         backpackButton.textContent = "Backpack";
         backpackButton.onclick = openBackpack;
         actionButtons.appendChild(backpackButton);
-
         updateStatsDisplay();
     }
 
@@ -286,9 +285,10 @@ document.addEventListener('DOMContentLoaded', () => {
         healthEl.textContent=player.health;
         kCalsEl.textContent=player.kCals;
         energyEl.textContent = player.energy;
-        timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
+        timeEl.textContent = `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
         playerSuitEl.textContent=playerLoadout.suit;
         playerToolEl.textContent=playerLoadout.tool;
+        updateBackpackDisplay();
         if(player.health<=0){handleDeath("Vital Signs Lost");}
         if (player.energy <= 0) { handleDeath("Exhaustion"); }
         if (player.energy < 5) {
@@ -296,50 +296,100 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function openBackpack() {
-        let backpackContent = "Your backpack contains:\n";
+    function updateBackpackDisplay() {
+        if (!backpackEl) return;
+        backpackEl.innerHTML = '';
         if (player.backpack && player.backpack.length > 0) {
             const items = {};
             player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
-            for (const itemName in items) {
-                backpackContent += `\n- ${itemName} (x${items[itemName]})`;
+            for (const item in items) {
+                const li = document.createElement('li');
+                li.textContent = `${item} (x${items[item]})`;
+                backpackEl.appendChild(li);
             }
         } else {
-            backpackContent = "Your backpack is empty.";
+            backpackEl.innerHTML = '<li>Empty</li>';
         }
+    }
 
-        eventText.innerHTML = backpackContent.replace(/\n/g, '<br>');
+    function openBackpack() {
+        eventText.innerHTML = '<h2>Inventory</h2>';
         actionButtons.innerHTML = '';
+    
+        const inventoryItems = new Set(globalState.ownedItems.concat(player.backpack || []));
+    
+        if (inventoryItems.size > 0) {
+            const list = document.createElement('ul');
+            list.style.cssText = "list-style: none; padding: 0; margin-top: 10px; text-align: left;";
+    
+            inventoryItems.forEach(itemName => {
+                const itemDef = itemData[itemName];
+                if (itemDef) {
+                    const li = document.createElement('li');
+    
+                    const countInBackpack = (player.backpack || []).filter(i => i === itemName).length;
+                    let displayText = itemName;
 
-        if (player.backpack && player.backpack.length > 0) {
-            const items = {};
-            player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
-            for (const itemName in items) {
-                const button = document.createElement('button');
-                button.textContent = `Inspect ${itemName}`;
-                button.onclick = () => {
-                    const itemDef = itemData[itemName];
-                    if (itemDef) {
-                        eventText.innerHTML = itemDef.desc;
-                        actionButtons.innerHTML = '';
-                        const backButton = document.createElement('button');
-                        backButton.textContent = 'Back to Backpack';
-                        backButton.onclick = openBackpack;
-                        actionButtons.appendChild(backButton);
-                        const closeButton = document.createElement('button');
-                        closeButton.textContent = 'Close';
-                        closeButton.onclick = triggerEvent;
-                        actionButtons.appendChild(closeButton);
+                    if (itemDef.type === 'suit' && playerLoadout.suit === itemName) {
+                        displayText += ' (Equipped)';
+                    } else if (itemDef.type === 'tool' && playerLoadout.tool === itemName) {
+                        displayText += ' (Equipped)';
                     }
-                };
-                actionButtons.appendChild(button);
-            }
-        }
+    
+                    if (countInBackpack > 0 && (itemDef.type === 'sample' || itemDef.type === 'misc')) {
+                        displayText += ` (x${countInBackpack})`;
+                    }
+    
+                    li.textContent = displayText;
+                    li.style.cursor = 'pointer';
+                    li.style.color = '#0CF';
+                    li.style.marginBottom = '5px';
+                    li.onmouseover = () => { li.style.color = '#0FF'; };
+                    li.onmouseout = () => { li.style.color = '#0CF'; };
+    
+                    li.onclick = () => {
+                        eventText.innerHTML = `<h2>${itemName}</h2><p>${itemDef.desc}</p>`;
+                        actionButtons.innerHTML = '';
 
-        const backButton = document.createElement('button');
-        backButton.textContent = 'Back';
-        backButton.onclick = triggerEvent;
-        actionButtons.appendChild(backButton);
+                        if ((itemDef.type === 'suit' && playerLoadout.suit !== itemName) || (itemDef.type === 'tool' && playerLoadout.tool !== itemName)) {
+                            const equipButton = document.createElement('button');
+                            equipButton.textContent = 'Equip';
+                            equipButton.onclick = () => {
+                                if (itemDef.type === 'suit') {
+                                    const oldSuit = playerLoadout.suit;
+                                    const oldSuitMaxHealth = loadoutModifiers.suits[oldSuit].health;
+                                    const healthPercentage = player.health / oldSuitMaxHealth;
+
+                                    playerLoadout.suit = itemName;
+
+                                    const newSuitMaxHealth = loadoutModifiers.suits[itemName].health;
+                                    player.health = Math.round(newSuitMaxHealth * healthPercentage);
+                                } else if (itemDef.type === 'tool') {
+                                    playerLoadout.tool = itemName;
+                                }
+                                updateStatsDisplay();
+                                openBackpack(); // Refresh backpack view
+                            };
+                            actionButtons.appendChild(equipButton);
+                        }
+    
+                        const backToInventoryButton = document.createElement('button');
+                        backToInventoryButton.textContent = 'Back to Inventory';
+                        backToInventoryButton.onclick = openBackpack;
+                        actionButtons.appendChild(backToInventoryButton);
+                    };
+                    list.appendChild(li);
+                }
+            });
+            eventText.appendChild(list);
+        } else {
+            eventText.innerHTML += '<p>Your inventory is empty.</p>';
+        }
+    
+        const backToGameButton = document.createElement('button');
+        backToGameButton.textContent = 'Back to Game';
+        backToGameButton.onclick = triggerEvent;
+        actionButtons.appendChild(backToGameButton);
     }
 
     function standardContinue(){
@@ -421,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (isCurrent) { cell.classList.add('current'); }
 
-                if (.isExplored) {
+                if (isExplored) {
                     cell.classList.add('unlocked');
                     if (poiKey) {
                         cell.classList.add('poi');
@@ -455,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.random() < 0.2) { // 20% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Strange Artifact', 'Damaged Logbook'][Math.floor(Math.random() * 4)];
             if(player.backpack) player.backpack.push(foundItem);
-            message = `Scanning... your device chirps. You've found a ${foundItem}.`;
+            message = `Scanning... your device chirps. You\'ve found a ${foundItem}.`;
         }
         logEvent(message + " (-2 Energy)");
         standardContinue();
@@ -492,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
             events.boulderPass = [{ text: "The path you cleared previously.", actions: [] }];
             standardContinue();
         } else {
-            logEvent("You don't have enough energy to clear the boulder. You need at least 25 energy.");
+            logEvent("You don\'t have enough energy to clear the boulder. You need at least 25 energy.");
             standardContinue();
         }
     }
