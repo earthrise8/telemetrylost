@@ -52,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemData = { 'Survey': { type: 'suit', cost: 0, desc: 'Health: 100, Temp: 100. Standard issue.' }, 'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100, Temp: 150. Better for cold zones.' }, 'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150, Temp: 100. Offers more protection.' }, 'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' }, 'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' }, 'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' } };
     const loadoutModifiers = { suits: { 'Survey': { health: 100, temperature: 100 }, 'Insulated': { health: 100, temperature: 150 }, 'Reinforced': { health: 150, temperature: 100 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
     const events = {
-        landingZone: [{ text: "Base is quiet. kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "To Glacier", func: () => moveQuadrant('glacier') }, { label: "To Ice Fields", func: () => moveQuadrant('iceFields') }] }],
-        glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }, { label: "To Base", func: () => moveQuadrant('landingZone') }] }],
-        iceFields: [{ text: "Vast, flat ice fields stretch to the horizon.", actions: [{ label: "Scan the area", func: scanArea }, { label: "To Base", func: () => moveQuadrant('landingZone') }, { label: "To Crevasse", func: () => moveQuadrant('crevasse') }] }],
-        crevasse: [{ text: "A deep, dark crevasse splits the ice sheet.", actions: [{ label: "Peer into the darkness", func: scanArea }, { label: "To Ice Fields", func: () => moveQuadrant('iceFields') }] }],
-        thermalVents: [{ text: "Plumes of steam rise from cracks in the ice.", actions: [{ label: "Approach Vents", func: approachVents }, { label: "To Glacier", func: () => moveQuadrant('glacier') }] }],
-        crystalCave: [{ text: "A vast cavern of shimmering crystals.", actions: [{ label: "Collect Crystal Sample", func: collectCrystalSample }, { label: "Return to Base", func: () => moveQuadrant('landingZone') }] }]
+        landingZone: [{ text: "Base is quiet. kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }] }],
+        glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }] }],
+        iceFields: [{ text: "Vast, flat ice fields stretch to the horizon.", actions: [{ label: "Scan the area", func: scanArea }] }],
+        crevasse: [{ text: "A deep, dark crevasse splits the ice sheet.", actions: [{ label: "Peer into the darkness", func: scanArea }] }],
+        thermalVents: [{ text: "Plumes of steam rise from cracks in the ice.", actions: [{ label: "Approach Vents", func: approachVents }] }],
+        crystalCave: [{ text: "A vast cavern of shimmering crystals.", actions: [{ label: "Collect Crystal Sample", func: collectCrystalSample }] }]
     };
     const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", trigger: () => globalState.deaths > 0, isComplete: () => globalState.unlockedQuadrants.includes('crystalCave') }];
 
@@ -162,6 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
             logEvent(event.text);
         }
 
+        // Add directional movement buttons
+        const directions = ['North', 'South', 'East', 'West'];
+        directions.forEach(direction => {
+            const button = document.createElement('button');
+            button.textContent = `Go ${direction}`;
+            button.onclick = () => moveDirection(direction.toLowerCase());
+            actionButtons.appendChild(button);
+        });
+
         event.actions.forEach(action => {
             const button = document.createElement('button');
             button.textContent = action.label;
@@ -216,8 +225,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Helper functions
-    function updateStatsDisplay(){if(!player||!playerLoadout.suit)return;characterNameEl.textContent=player.name;healthEl.textContent=player.health;temperatureEl.textContent=player.temperature;kCalsEl.textContent=player.kCals;aggressionEl.textContent=player.aggression;timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;playerSuitEl.textContent=playerLoadout.suit;playerToolEl.textContent=playerLoadout.tool;if(player.health<=0||player.temperature<=0||player.kCals<=0){handleDeath(player.kCals<=0?"Starvation":player.health<=0?"Vital Signs Lost":"Thermal Failure");}}
+    function updateStatsDisplay(){if(!player||!playerLoadout.suit)return;characterNameEl.textContent=player.name;healthEl.textContent=player.health;temperatureEl.textContent=player.temperature;kCalsEl.textContent=player.kCals;aggressionEl.textContent=player.aggression;timeEl.textContent=`${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;playerSuitEl.textContent=playerLoadout.suit;playerToolEl.textContent=playerLoadout.tool;if(player.health<=0||player.temperature<=0){handleDeath(player.health<=0?"Vital Signs Lost":"Thermal Failure");}}
     function standardContinue(){updateStatsDisplay();actionButtons.innerHTML='';const b=document.createElement('button');b.textContent="Continue";b.onclick=triggerEvent;actionButtons.appendChild(b);}
+    
+    function moveDirection(direction) {
+        const currentPos = quadrantMap[currentQuadrant];
+        let targetX = currentPos.x;
+        let targetY = currentPos.y;
+
+        if (direction === 'north') targetY--;
+        if (direction === 'south') targetY++;
+        if (direction === 'east') targetX++;
+        if (direction === 'west') targetX--;
+
+        const targetQuadrant = Object.keys(quadrantMap).find(key => quadrantMap[key].x === targetX && quadrantMap[key].y === targetY);
+
+        if (targetQuadrant) {
+            moveQuadrant(targetQuadrant);
+        } else {
+            logEvent("You can't go that way.");
+            standardContinue();
+        }
+    }
+
     function moveQuadrant(newQuadrant){if(!globalState.unlockedQuadrants.includes(newQuadrant)){globalState.unlockedQuadrants.push(newQuadrant);saveGlobalState();if(newQuadrant==='crystalCave'){addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");globalState.bankedkCals+=1500;}} advanceTime(60);currentQuadrant=newQuadrant;logEvent(`Traveling to ${quadrantMap[newQuadrant].name}...`);setTimeout(()=>{updateMap();triggerEvent();},1500);}
     function openStore(){storeKcalsEl.textContent=globalState.bankedkCals;storeItemsEl.innerHTML='';Object.entries(itemData).forEach(([name,item])=>{if(item.cost===0)return;const div=document.createElement('div');div.className='item';const btn=globalState.ownedItems.includes(name)?`<span>Owned</span>`:`<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals<item.cost?'disabled':''}>Buy (${item.cost} kCal)</button>`;div.innerHTML=`<div><strong>${name}</strong><br><em>${item.desc}</em></div>${btn}`;storeItemsEl.appendChild(div);});storeOverlay.classList.remove('hidden');}
     function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();}}
