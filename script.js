@@ -6,9 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventText = document.getElementById('event-text');
     const characterNameEl = document.getElementById('character-name');
     const healthEl = document.getElementById('health');
-    const kCalsEl = document.getElementById('kcals');
+    const bankedKcalsEl = document.getElementById('banked-kcals');
+    const carriedKcalsEl = document.getElementById('carried-kcals');
     const energyEl = document.getElementById('energy');
     const timeEl = document.getElementById('time');
+    const coordinatesEl = document.getElementById('coordinates');
     const playerSuitEl = document.getElementById('player-suit');
     const playerToolEl = document.getElementById('player-tool');
     const backpackEl = document.getElementById('backpack-items');
@@ -31,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const suitSelectionContainer = document.getElementById('suit-selection');
     const toolSelectionContainer = document.getElementById('tool-selection');
     const startExpeditionBtn = document.getElementById('start-expedition-btn');
+    const nameScreen = document.getElementById('name-screen');
+    const newCharacterNameInput = document.getElementById('new-character-name-input');
+    const startGameBtn = document.getElementById('start-game-btn');
 
     // Game State
     let player = {};
@@ -39,20 +44,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCoords = { x: 4, y: 5 };
     let gameTime = 420;
     let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
+    let storyIndex = 0;
+    const backstory = [
+        "The year is 2242. You are a Cycler, a clone consciousness uploaded into a new body every time you die.",
+        "Your mission is to explore the frozen world of Niflheim, a planet with the potential for human colonization.",
+        "You are disposable. Your memories are backed up, but your life is not. Each cycle is a new chance to complete your mission.",
+        "You\'ve just been recycled. Your previous iteration... failed. Now it\'s your turn. Good luck, Cycler."
+    ];
 
     const initialGlobalState = {
         bankedkCals: 500,
         deaths: 0,
         exploredTiles: ['4,5'],
-        ownedItems: ['Survey', 'Thermal Cutter'],
+        ownedItems: [],
+        crystalCave_crystals: Math.floor(Math.random() * 4) + 2, // 2 to 5 crystals
+        dailyMission: null,
     };
 
     const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Unknown": "FC-UNX-000" };
     const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
     const itemData = {
-        'Survey': { type: 'suit', cost: 0, desc: 'Health: 100. Standard issue.' },
-        'Insulated': { type: 'suit', cost: 800, desc: 'Health: 100. Better insulation for cold zones.' },
-        'Reinforced': { type: 'suit', cost: 800, desc: 'Health: 150. Offers more protection.' },
+        'Survey Gear': { type: 'suit', cost: 0, desc: 'Reduced travel distance and energy consumption for movement.' },
+        'Thermal Gear': { type: 'suit', cost: 800, desc: 'Allows for further exploration with slightly increased energy consumption.' },
+        'Armoured Gear': { type: 'suit', cost: 800, desc: 'Maximum protection and reduced energy for manual labor, but high energy consumption for movement.' },
         'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' },
         'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' },
         'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' },
@@ -62,7 +76,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'Strange Artifact': { type: 'misc', desc: 'A strange, pulsating artifact. It feels warm to the touch.' },
         'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' }
     };
-    const loadoutModifiers = { suits: { 'Survey': { health: 100 }, 'Insulated': { health: 100 }, 'Reinforced': { health: 150 } }, tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } };
+    const loadoutModifiers = { 
+        suits: { 
+            'Survey Gear': { health: 100, maxDistance: 3, moveEnergy: -2, actionEnergy: 0 }, 
+            'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2 }, 
+            'Armoured Gear': { health: 150, maxDistance: 4, moveEnergy: 5, actionEnergy: -5 } 
+        }, 
+        tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } 
+    };
     const events = {
         landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "Sleep", func: sleep }] }],
         glacier: [{ text: "A massive, creaking glacier stretches before you.", actions: [{ label: "Scan for anomalies", func: scanArea }] }],
@@ -74,6 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
         wasteland: [{ text: "A vast, snowy wasteland stretches in all directions.", actions: [{ label: "Scan Area", func: scanArea }] }]
     };
     const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", coords: {x: 1, y: 8}, trigger: () => globalState.deaths > 0, isComplete: () => globalState.exploredTiles.includes('1,8') }];
+    const missionTemplates = [
+        ...Object.keys(poiMap).filter(p => p !== 'landingZone').map(p => ({ type: 'explore', target: p, reward: 500, penalty: 200, text: `Scout the ${poiMap[p].name} at (${poiMap[p].x}, ${poiMap[p].y}).`})),
+        ...Object.keys(itemData).filter(i => itemData[i].type === 'sample').map(i => ({ type: 'collect', target: i, reward: 750, penalty: 350, text: `Acquire a sample of "${i}".`}))
+    ];
 
     function getPoiKeyByCoords(x, y) { return Object.keys(poiMap).find(key => poiMap[key].x === x && poiMap[key].y === y); }
 
@@ -81,13 +106,54 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadGlobalState();
         setupEventListeners();
-        showSetupScreen();
-        updateMap();
+        const hasPlayedBefore = localStorage.getItem('hasPlayedBefore');
+        if (hasPlayedBefore) {
+            showSetupScreen(false);
+        } else {
+            showNameInput();
+        }
+    }
+
+    function showNameInput() {
+        mainWrapper.classList.add('hidden');
+        setupScreen.classList.add('hidden');
+        nameScreen.classList.remove('hidden');
+    }
+
+    function startBackstory() {
+        const playerName = newCharacterNameInput.value;
+        if (!playerName) {
+            alert("Please enter a Cycler ID.");
+            return;
+        }
+        localStorage.setItem('playerName', playerName);
+        player.name = playerName;
+        nameScreen.classList.add('hidden');
+        mainWrapper.classList.remove('hidden');
+        ocularInterface.classList.remove('hidden');
+        showStory();
+    }
+
+    function showStory() {
+        if (storyIndex < backstory.length) {
+            logEvent(backstory[storyIndex]);
+            const continueBtn = document.createElement('button');
+            continueBtn.textContent = "Continue";
+            continueBtn.onclick = () => {
+                storyIndex++;
+                showStory();
+            };
+            actionButtons.appendChild(continueBtn);
+        } else {
+            showSetupScreen(true);
+        }
     }
 
     function resetGameData() {
         if (confirm("Are you sure? This will wipe all local progress.")) {
             localStorage.removeItem('telemetryLostGlobalState');
+            localStorage.removeItem('hasPlayedBefore');
+            localStorage.removeItem('playerName');
             location.reload();
         }
     }
@@ -96,22 +162,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedState = localStorage.getItem('telemetryLostGlobalState');
         globalState = savedState ? JSON.parse(savedState) : JSON.parse(JSON.stringify(initialGlobalState));
         if (!globalState.exploredTiles) { globalState.exploredTiles = ['4,5']; }
+        if (globalState.crystalCave_crystals === undefined) {
+            globalState.crystalCave_crystals = Math.floor(Math.random() * 4) + 2; // 2 to 5 crystals
+        }
+        if (globalState.dailyMission === undefined) {
+            globalState.dailyMission = null;
+        }
+        const playerName = localStorage.getItem('playerName');
+        if (playerName) {
+            player.name = playerName;
+        }
     }
 
     function saveGlobalState() {
         localStorage.setItem('telemetryLostGlobalState', JSON.stringify(globalState));
     }
 
-    function showSetupScreen() {
+    function showSetupScreen(isFirstTime) {
         mainWrapper.classList.add('hidden');
-        cyclerOverlay.classList.add('hidden');
-        storeOverlay.classList.add('hidden');
+        nameScreen.classList.add('hidden');
         setupScreen.classList.remove('hidden');
-        characterNameInput.value = "";
+        characterNameInput.value = player.name || "";
 
         playerLoadout = {
-            suit: globalState.ownedItems.includes('Survey') ? 'Survey' : null,
-            tool: globalState.ownedItems.includes('Thermal Cutter') ? 'Thermal Cutter' : null,
+            suit: null,
+            tool: null,
         };
 
         suitSelectionContainer.innerHTML = '<h2>Choose a Suit</h2>';
@@ -123,36 +198,92 @@ document.addEventListener('DOMContentLoaded', () => {
             const optionDiv = document.createElement('div');
             optionDiv.className = 'loadout-option';
             const isOwned = globalState.ownedItems.includes(itemName);
+            const isFree = itemDef.cost === 0;
+
+            if (isFirstTime && !isFree) return;
+
             const button = document.createElement('button');
             button.className = `${itemDef.type}-btn`;
             button.dataset[itemDef.type] = itemName;
             button.textContent = itemName;
-            button.disabled = !isOwned;
+            button.disabled = !isFirstTime && !isOwned;
+
             if ((itemDef.type === 'suit' && playerLoadout.suit === itemName) || (itemDef.type === 'tool' && playerLoadout.tool === itemName)) {
                 button.classList.add('selected');
             }
+
             const desc = document.createElement('div');
             desc.className = 'option-desc';
-            desc.textContent = itemDef.desc + (!isOwned ? ` (Not Owned)` : ``);
+            desc.textContent = itemDef.desc + (!isOwned && !isFirstTime ? ` (Not Owned)` : ``);
             optionDiv.appendChild(button);
             optionDiv.appendChild(desc);
             container.appendChild(optionDiv);
         });
     }
 
-    function startExpedition() {
-        if (!playerLoadout.suit || !playerLoadout.tool || !characterNameInput.value) {
-            alert("Please enter a Cycler ID and select an owned suit and tool.");
+    function checkMissionCompletion(eventData) {
+        const mission = globalState.dailyMission;
+        if (!mission || mission.status !== 'assigned') {
             return;
+        }
+
+        let missionComplete = false;
+        if (mission.type === 'explore' && eventData.type === 'location') {
+            const poiKey = getPoiKeyByCoords(eventData.coords.x, eventData.coords.y);
+            if (mission.target === poiKey) {
+                missionComplete = true;
+            }
+        } else if (mission.type === 'collect' && eventData.type === 'item' && mission.target === eventData.item) {
+            missionComplete = true;
+        }
+
+        if (missionComplete) {
+            mission.status = 'completed';
+            globalState.bankedkCals += mission.reward;
+            saveGlobalState();
+            addChatMessage("Mission Control", `Objective complete: ${mission.text}. Your account has been credited ${mission.reward} kCal.`);
+        }
+    }
+
+    function assignDailyMission() {
+        const today = Math.floor(gameTime / 1440);
+
+        if (globalState.dailyMission && globalState.dailyMission.status === 'assigned' && globalState.dailyMission.dayAssigned < today) {
+            globalState.bankedkCals -= globalState.dailyMission.penalty;
+            addChatMessage("Mission Control", `Objective failed: ${globalState.dailyMission.text}. Your account has been docked ${globalState.dailyMission.penalty} kCal.`);
+        }
+
+        const newMissionTemplate = missionTemplates[Math.floor(Math.random() * missionTemplates.length)];
+        globalState.dailyMission = {
+            ...newMissionTemplate,
+            status: 'assigned',
+            dayAssigned: today
+        };
+        saveGlobalState();
+        addChatMessage("Mission Control", `New daily objective: ${globalState.dailyMission.text}`);
+    }
+
+    function startExpedition() {
+        if (!playerLoadout.suit || !playerLoadout.tool) {
+            alert("Please select a suit and a tool.");
+            return;
+        }
+
+        const isFirstTime = !localStorage.getItem('hasPlayedBefore');
+
+        if (isFirstTime) {
+            localStorage.setItem('hasPlayedBefore', 'true');
+            globalState.ownedItems.push(playerLoadout.suit, playerLoadout.tool);
+            saveGlobalState();
         }
 
         setupScreen.classList.add('hidden');
         mainWrapper.classList.remove('hidden');
 
         player = { 
-            name: characterNameInput.value, 
+            name: player.name || characterNameInput.value,
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
-            kCals: 5000, 
+            kCals: 0, 
             energy: 100,
             backpack: []
         };
@@ -161,6 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         chatLog.innerHTML = '';
         addChatMessage("Mission Control", `Welcome, Cycler ${player.name}. Explore, gather data, stay alive.`);
+        assignDailyMission();
         checkMissions();
         updateMap();
         updateStatsDisplay();
@@ -174,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function triggerEvent() {
         advanceTime(10);
+        checkMissionCompletion({ type: 'location', coords: currentCoords });
         const poiKey = getPoiKeyByCoords(currentCoords.x, currentCoords.y);
         let eventPool = events.wasteland;
         if (poiKey && events[poiKey]) { eventPool = events[poiKey]; }
@@ -181,25 +314,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const event = eventPool[Math.floor(Math.random() * eventPool.length)];
 
         if (poiKey === 'landingZone') {
-            let bankedValue = player.kCals;
             let samplesValue = 0;
+            const remainingBackpack = [];
+
             if (player.backpack) {
                 player.backpack.forEach(item => {
-                    if(itemData[item] && itemData[item].sell) {
+                    if (itemData[item] && itemData[item].sell) {
                         samplesValue += itemData[item].sell;
+                    } else {
+                        remainingBackpack.push(item);
                     }
                 });
             }
-            bankedValue += samplesValue;
-            globalState.bankedkCals += bankedValue;
+
+            const bankedKCal = player.kCals;
+            globalState.bankedkCals += bankedKCal + samplesValue;
             player.kCals = 0;
-            player.backpack = [];
+            player.backpack = remainingBackpack;
             saveGlobalState();
-            let logMessage = `kCal and sample reserves banked. Current total: ${globalState.bankedkCals}.`;
+
+            let logMessage = `Returned to Base.`;
+            if (bankedKCal > 0) {
+                addChatMessage("Mission Control", `Banked ${bankedKCal} kCal from your expedition.`);
+            }
             if (samplesValue > 0) {
-                 addChatMessage("Mission Control", `Received biological and geological samples. Your account has been credited ${samplesValue} kCal.`);
+                addChatMessage("Mission Control", `Received and processed samples for ${samplesValue} kCal.`);
             }
             logEvent(`${logMessage} ${event.text}`);
+
         } else {
             logEvent(event.text);
         }
@@ -237,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupEventListeners() {
         devResetBtn.addEventListener('click', resetGameData);
         startExpeditionBtn.addEventListener('click', startExpedition);
+        startGameBtn.addEventListener('click', startBackstory);
         cycleBtn.addEventListener('click', () => location.reload());
         closeStoreBtn.addEventListener('click', closeStore);
 
@@ -269,25 +412,29 @@ document.addEventListener('DOMContentLoaded', () => {
         mainWrapper.classList.add('hidden');
         cyclerOverlay.classList.remove('hidden');
         globalState.deaths++;
-        globalState.bankedkCals += player.kCals; // Bank remaining kcals, not samples
-        saveGlobalState();
-
+        const bankedAmount = player.kCals;
+        globalState.bankedkCals += bankedAmount;
+        
         cyclerIdLogEl.textContent = player.name;
         failureCauseLogEl.textContent = cause;
         failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
-        kCalsBankedLogEl.textContent = player.kCals;
+        kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
+        
+        saveGlobalState();
     }
 
     // Helper functions
     function updateStatsDisplay(){
-        if(!player||!playerLoadout.suit)return;
-        characterNameEl.textContent=player.name;
-        healthEl.textContent=player.health;
-        kCalsEl.textContent=player.kCals;
-        energyEl.textContent = player.energy;
+        if(!player||!globalState)return;
+        characterNameEl.textContent=player.name || '';
+        healthEl.textContent=player.health || 0;
+        bankedKcalsEl.textContent = globalState.bankedkCals || 0;
+        carriedKcalsEl.textContent = player.kCals || 0;
+        energyEl.textContent = player.energy || 0;
         timeEl.textContent = `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
-        playerSuitEl.textContent=playerLoadout.suit;
-        playerToolEl.textContent=playerLoadout.tool;
+        coordinatesEl.textContent = `${currentCoords.x}, ${currentCoords.y}`;
+        playerSuitEl.textContent=playerLoadout.suit || 'N/A';
+        playerToolEl.textContent=playerLoadout.tool || 'N/A';
         updateBackpackDisplay();
         if(player.health<=0){handleDeath("Vital Signs Lost");}
         if (player.energy <= 0) { handleDeath("Exhaustion"); }
@@ -410,6 +557,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (direction === 'east') targetX++;
         if (direction === 'west') targetX--;
 
+        const distance = Math.abs(targetX - 4) + Math.abs(targetY - 5);
+        const suit = playerLoadout.suit;
+        if (distance > loadoutModifiers.suits[suit].maxDistance) {
+            logEvent("Your suit doesn\'t have the range to go that far.");
+            addChatMessage("Mission Control", "Exceeding suit\'s operational range is not advised. Return to a closer distance to base.");
+            standardContinue();
+            return;
+        }
+
         if (targetX < 0 || targetX > 9 || targetY < 0 || targetY > 9) {
             logEvent("You are at the edge of the designated survey area.");
             addChatMessage("Mission Control", "Further deviation from the survey zone is not authorized. Return to the designated grid.");
@@ -420,11 +576,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function moveTo(x, y) {
+        const suit = playerLoadout.suit;
+        const moveEnergyCost = 5 + loadoutModifiers.suits[suit].moveEnergy;
+        player.energy -= moveEnergyCost;
+
         const newCoordString = `${x},${y}`;
         const isFirstVisit = !globalState.exploredTiles.includes(newCoordString);
         
-        player.energy -= 5;
-
         if (isFirstVisit) {
             globalState.exploredTiles.push(newCoordString);
             const poiKey = getPoiKeyByCoords(x, y);
@@ -445,12 +603,57 @@ document.addEventListener('DOMContentLoaded', () => {
             destinationName = "an unknown sector";
         }
 
-        logEvent(`Traveling to ${destinationName}...`);
+        logEvent(`Traveling to ${destinationName}... (-${moveEnergyCost} Energy)`);
         setTimeout(()=>{updateMap();triggerEvent();}, 1500);
     }
 
-    function openStore(){storeKcalsEl.textContent=globalState.bankedkCals;storeItemsEl.innerHTML='';Object.entries(itemData).forEach(([name,item])=>{if(item.type!=='suit'&&item.type!=='tool'||item.cost===0)return;const div=document.createElement('div');div.className='item';const btn=globalState.ownedItems.includes(name)?`<span>Owned</span>`:`<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals<item.cost?'disabled':''}>Buy (${item.cost} kCal)</button>`;div.innerHTML=`<div><strong>${name}</strong><br><em>${item.desc}</em></div>${btn}`;storeItemsEl.appendChild(div);});storeOverlay.classList.remove('hidden');}
-    function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();}}
+    function openStore() {
+        storeKcalsEl.textContent = globalState.bankedkCals;
+        const storeTable = document.createElement('table');
+        storeItemsEl.innerHTML = '';
+        storeItemsEl.appendChild(storeTable);
+    
+        const suits = Object.entries(itemData).filter(([name, item]) => item.type === 'suit' && item.cost > 0);
+        const tools = Object.entries(itemData).filter(([name, item]) => item.type === 'tool' && item.cost > 0);
+    
+        let suitHtml = '<tr class="category-header"><th colspan="3">Suits</th></tr>';
+        suits.forEach(([name, item]) => {
+            const btn = globalState.ownedItems.includes(name)
+                ? `<span>Owned</span>`
+                : `<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals < item.cost ? 'disabled' : ''}>Buy</button>`;
+            suitHtml += `
+                <tr>
+                    <td>
+                        <div class="item-name">${name}</div>
+                        <div class="item-desc">${item.desc}</div>
+                    </td>
+                    <td class="item-price">${item.cost} kCal</td>
+                    <td class="item-action">${btn}</td>
+                </tr>
+            `;
+        });
+    
+        let toolHtml = '<tr class="category-header"><th colspan="3">Tools</th></tr>';
+        tools.forEach(([name, item]) => {
+            const btn = globalState.ownedItems.includes(name)
+                ? `<span>Owned</span>`
+                : `<button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals < item.cost ? 'disabled' : ''}>Buy</button>`;
+            toolHtml += `
+                <tr>
+                    <td>
+                        <div class="item-name">${name}</div>
+                        <div class="item-desc">${item.desc}</div>
+                    </td>
+                    <td class="item-price">${item.cost} kCal</td>
+                    <td class="item-action">${btn}</td>
+                </tr>
+            `;
+        });
+
+        storeTable.innerHTML = suitHtml + toolHtml;
+    }
+
+    function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();updateStatsDisplay();}}
     
     function updateMap() {
         mapGrid.style.transform = `translate(${mapState.x}px, ${mapState.y}px) scale(${mapState.scale})`;
@@ -497,32 +700,96 @@ document.addEventListener('DOMContentLoaded', () => {
     function addChatMessage(sender,message){const d=document.createElement('div');d.className='chat-message';d.innerHTML=`<span class="sender">${sender}:</span> <span class="message">"${message}"</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;}
     function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger()){addChatMessage(m.sender,m.message);}})}
     function closeStore(){storeOverlay.classList.add('hidden');}
-    function advanceTime(minutes){gameTime+=minutes;player.kCals-=Math.floor(minutes/10);updateStatsDisplay();}
+    
+    function advanceTime(minutes){
+        const oldDay = Math.floor(gameTime / 1440);
+        gameTime+=minutes;
+        const newDay = Math.floor(gameTime / 1440);
+
+        if (newDay > oldDay) {
+            assignDailyMission();
+        }
+
+        player.kCals-=Math.floor(minutes/10);
+        updateStatsDisplay();
+    }
     
     function scanArea() {
+        const suit = playerLoadout.suit;
+        const energyCost = 2 + loadoutModifiers.suits[suit].actionEnergy;
         let message = "Scanning... nothing of interest in the immediate vicinity. The wind howls.";
-        player.energy -= 2;
+        player.energy -= energyCost;
         if (Math.random() < 0.2) { // 20% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Strange Artifact', 'Damaged Logbook'][Math.floor(Math.random() * 4)];
             if(player.backpack) player.backpack.push(foundItem);
+            checkMissionCompletion({ type: 'item', item: foundItem });
             message = `Scanning... your device chirps. You\'ve found a ${foundItem}.`;
         }
-        logEvent(message + " (-2 Energy)");
+        logEvent(message + ` (-${energyCost} Energy)`);
         standardContinue();
     }
 
     function approachVents(){logEvent("The warmth is inviting, but it offers no real benefit.");standardContinue();}
     
-    function collectCrystalSample(){
-        let message = "You carefully extract a crystal. It pulses with a soft light. +300 kCals.";
-        player.kCals += 300;
-        player.energy -= 10;
-        if (Math.random() < 0.5) { // 50% chance to get a special sample
-            if(player.backpack) player.backpack.push('Alien Microbe');
-            message += " You manage to secure a sample containing a strange, resilient microbe.";
+    function collectCrystalSample() {
+        const requiredTool = 'Thermal Cutter';
+    
+        if (playerLoadout.tool !== requiredTool) {
+            if (globalState.ownedItems.includes(requiredTool)) {
+                // Player owns the tool, but it's not equipped.
+                logEvent(`You need the ${requiredTool} to harvest these crystals. Would you like to equip it?`);
+                actionButtons.innerHTML = '';
+    
+                const equipButton = document.createElement('button');
+                equipButton.textContent = `Equip ${requiredTool}`;
+                equipButton.onclick = () => {
+                    playerLoadout.tool = requiredTool;
+                    updateStatsDisplay();
+                    collectCrystalSample(); // Re-run the function with the tool equipped.
+                };
+                actionButtons.appendChild(equipButton);
+    
+                const backButton = document.createElement('button');
+                backButton.textContent = "Back";
+                backButton.onclick = triggerEvent; // Go back to the main event loop
+                actionButtons.appendChild(backButton);
+    
+            } else {
+                // Player does not own the tool.
+                logEvent("You try to harvest the material, but it is incredibly tough. Perhaps a Thermal Cutter would be able to cut this.");
+                standardContinue();
+            }
+            return;
         }
-        logEvent(message + " (-10 Energy)");
-        standardContinue();
+        const suit = playerLoadout.suit;
+        const energyCost = 10 + loadoutModifiers.suits[suit].actionEnergy;
+    
+        if (globalState.crystalCave_crystals > 0) {
+            globalState.crystalCave_crystals--;
+            saveGlobalState();
+    
+            let message = "You carefully extract a crystal. It pulses with a soft light.";
+            player.kCals += 300; // Directly add to carried kCals
+            player.energy -= energyCost;
+    
+            if (Math.random() < 0.5) { // 50% chance to get a special sample
+                if (player.backpack) player.backpack.push('Alien Microbe');
+                checkMissionCompletion({ type: 'item', item: 'Alien Microbe' });
+                message += " You manage to secure a sample containing a strange, resilient microbe.";
+            }
+    
+            message += ` There are ${globalState.crystalCave_crystals} harvestable crystals remaining.`;
+            if (globalState.crystalCave_crystals === 0) {
+                message += " The cave seems to be depleted of easily accessible crystals.";
+            }
+            
+            logEvent(message + ` (+300 kCals, -${energyCost} Energy)`);
+            standardContinue();
+    
+        } else {
+            logEvent("You've already harvested all the accessible crystals from this area. There are no more to collect.");
+            standardContinue();
+        }
     }
 
     function sleep() {
@@ -535,14 +802,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearBoulder() {
-        const energyCost = 25;
+        const requiredTool = 'Thermal Cutter';
+        const suit = playerLoadout.suit;
+        const energyCost = 25 + loadoutModifiers.suits[suit].actionEnergy;
+    
+        if (playerLoadout.tool !== requiredTool) {
+            if (globalState.ownedItems.includes(requiredTool)) {
+                // Player owns the tool, but it's not equipped.
+                logEvent(`You need the ${requiredTool} to clear this boulder. Would you like to equip it?`);
+                actionButtons.innerHTML = '';
+    
+                const equipButton = document.createElement('button');
+                equipButton.textContent = `Equip ${requiredTool}`;
+                equipButton.onclick = () => {
+                    playerLoadout.tool = requiredTool;
+                    updateStatsDisplay();
+                    clearBoulder(); // Re-run the function with the tool equipped.
+                };
+                actionButtons.appendChild(equipButton);
+    
+                const backButton = document.createElement('button');
+                backButton.textContent = "Back";
+                backButton.onclick = triggerEvent; // Go back to the main event loop
+                actionButtons.appendChild(backButton);
+    
+            } else {
+                // Player does not own the tool.
+                logEvent("You try to clear the boulder, but it is too large and dense. Perhaps a Thermal Cutter could break it down.");
+                standardContinue();
+            }
+            return;
+        }
+    
+    
         if (player.energy > energyCost) {
             player.energy -= energyCost;
-            logEvent(`You spend a significant amount of energy and clear the boulder. (-${energyCost} Energy)`);
+            logEvent(`You use the Thermal Cutter and spend a significant amount of energy to clear the boulder. (-${energyCost} Energy)`);
             events.boulderPass = [{ text: "The path you cleared previously.", actions: [] }];
             standardContinue();
         } else {
-            logEvent("You don\'t have enough energy to clear the boulder. You need at least 25 energy.");
+            logEvent(`You don\'t have enough energy to clear the boulder. You need at least ${energyCost} energy.`);
             standardContinue();
         }
     }

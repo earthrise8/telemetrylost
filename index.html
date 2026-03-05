@@ -1,4 +1,4 @@
--<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,18 +9,20 @@
 <body>
     <button id="dev-reset-btn">WIPE LOCAL DATA</button>
 
-    <div id="main-wrapper" class="hidden">
+    <div id="main-wrapper">
         <div id="game-container">
-            <div id="ocular-interface">
+            <div id="ocular-interface" class="hidden">
                 <div id="event-text"></div>
             </div>
             <div id="info-panel">
                 <div id="stats-display">
                     <p>Name: <span id="character-name"></span></p>
                     <p>Health: <span id="health"></span></p>
-                    <p>kCals: <span id="kcals"></span></p>
+                    <p>Banked kCals: <span id="banked-kcals"></span></p>
+                    <p>Carried kCals: <span id="carried-kcals"></span></p>
                     <p>Energy: <span id="energy"></span></p>
                     <p>Time: <span id="time"></span></p>
+                    <p>Coordinates: <span id="coordinates"></span></p>
                     <hr>
                     <p>Suit: <span id="player-suit"></span></p>
                     <p>Tool: <span id="player-tool"></span></p>
@@ -60,7 +62,13 @@
         </div>
     </div>
 
-    <div id="setup-screen">
+    <div id="name-screen">
+        <h1>New Cycler Instance</h1>
+        <input type="text" id="new-character-name-input" placeholder="Enter Cycler ID" maxlength="15">
+        <button id="start-game-btn">Initiate Cycle</button>
+    </div>
+
+    <div id="setup-screen" class="hidden">
         <h1>Select Loadout</h1>
         <div id="name-selection">
             <h2>Enter Cycler ID:</h2>
