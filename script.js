@@ -79,12 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
         'Strange Artifact': { type: 'misc', desc: 'A strange, pulsating artifact. It feels warm to the touch.' },
         'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' },
         'Ration Pack': { type: 'consumable', cost: 100, desc: 'A high-energy food pack. Restores 50 energy.' },
-        'Warmer Unit': { type: 'consumable', cost: 250, desc: 'Provides 5 minutes of protection from extreme cold.' },
+        'Warmer Unit': { type: 'consumable', cost: 250, desc: 'An add-on for the Survey Gear that provides 5 minutes of protection from extreme cold.' },
     };
     const loadoutModifiers = { 
         suits: { 
             'Survey Gear': { health: 100, maxDistance: 3, moveEnergy: -2, actionEnergy: 0 }, 
-            'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2 }, 
+            'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2, providesWarmth: true }, 
             'Armoured Gear': { health: 150, maxDistance: 4, moveEnergy: 5, actionEnergy: -5 } 
         }, 
         tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } 
@@ -299,13 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
             backpack: []
         };
 
-        Object.entries(globalState.consumables).forEach(([name, count]) => {
-            for (let i = 0; i < count; i++) {
-                player.backpack.push(name);
-            }
-        });
-
-
         gameTime = 420;
         currentCoords = { x: 4, y: 5 };
 
@@ -350,15 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const bankedKCal = player.kCals;
             globalState.bankedkCals += bankedKCal + samplesValue;
             player.kCals = 0;
-
-            globalState.consumables = { 'Ration Pack': 0, 'Warmer Unit': 0 };
-            remainingBackpack.forEach(item => {
-                if (globalState.consumables[item] !== undefined) {
-                    globalState.consumables[item]++;
-                }
-            });
-
-            player.backpack = [];
+            player.backpack = remainingBackpack; 
 
             saveGlobalState();
 
@@ -476,10 +461,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateBackpackDisplay() {
         if (!backpackEl) return;
         backpackEl.innerHTML = '';
+        
+        const items = {};
         if (player.backpack && player.backpack.length > 0) {
-            const items = {};
             player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
-            for (const item in items) {
+        }
+
+        Object.entries(globalState.consumables).forEach(([name, count]) => {
+            if (count > 0) {
+                items[name] = count;
+            }
+        });
+
+        if (Object.keys(items).length > 0) {
+             for (const item in items) {
                 const li = document.createElement('li');
                 li.textContent = `${item} (x${items[item]})`;
                 backpackEl.appendChild(li);
@@ -493,7 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
         eventText.innerHTML = '<h2>Inventory</h2>';
         actionButtons.innerHTML = '';
     
-        const inventoryItems = new Set(player.backpack || []);
+        const backpackItems = player.backpack || [];
+        const consumableItems = Object.entries(globalState.consumables).filter(([, count]) => count > 0).map(([name]) => name);
+        const inventoryItems = new Set(backpackItems.concat(consumableItems));
     
         if (inventoryItems.size > 0) {
             const list = document.createElement('ul');
@@ -505,7 +502,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
     
                     const countInBackpack = (player.backpack || []).filter(i => i === itemName).length;
-                    let displayText = `${itemName} (x${countInBackpack})`;
+                    const countOfConsumable = globalState.consumables[itemName] || 0;
+
+                    let displayText = itemName;
+                    if (itemDef.type === 'consumable') {
+                        displayText += ` (x${countOfConsumable})`;
+                    } else if (countInBackpack > 0) {
+                        displayText += ` (x${countInBackpack})`;
+                    }
     
                     li.textContent = displayText;
                     li.style.cursor = 'pointer';
@@ -525,7 +529,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             actionButtons.appendChild(useButton);
                         }
 
-                        if ((itemDef.type === 'suit' && playerLoadout.suit !== itemName) || (itemDef.type === 'tool' && playerLoadout.tool !== itemName)) {
+                        if ((itemDef.type === 'suit' && playerLoadout.suit !== itemName && globalState.ownedItems.includes(itemName)) || 
+                            (itemDef.type === 'tool' && playerLoadout.tool !== itemName && globalState.ownedItems.includes(itemName))) {
                             const equipButton = document.createElement('button');
                             equipButton.textContent = 'Equip';
                             equipButton.onclick = () => {
@@ -567,19 +572,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function useConsumable(itemName) {
-        const itemIndex = player.backpack.indexOf(itemName);
-        if (itemIndex > -1) {
+        if (globalState.consumables[itemName] > 0) {
             if (itemName === 'Ration Pack') {
                 player.energy = Math.min(100, player.energy + 50);
-                player.backpack.splice(itemIndex, 1);
+                globalState.consumables[itemName]--;
                 logEvent("You consume a Ration Pack, restoring 50 energy.");
+                saveGlobalState();
+                setTimeout(openBackpack, 1500);
             } else if (itemName === 'Warmer Unit') {
+                if (playerLoadout.suit !== 'Survey Gear') {
+                    logEvent("Warmer Units are only compatible with standard issue Survey Gear.");
+                    setTimeout(openBackpack, 1500);
+                    return;
+                }
                 player.suitWarmerTime += 300; // 5 minutes
-                player.backpack.splice(itemIndex, 1);
+                globalState.consumables[itemName]--;
                 logEvent("You activate a Warmer Unit. You feel a comforting warmth spread through your suit.");
+                saveGlobalState();
+                setTimeout(openBackpack, 1500); 
             }
-            updateStatsDisplay();
-            openBackpack(); // Refresh backpack
         }
     }
 
@@ -656,7 +667,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const storeTable = document.createElement('table');
         storeItemsEl.innerHTML = '';
         storeItemsEl.appendChild(storeTable);
-    
+
         const suits = Object.entries(itemData).filter(([name, item]) => item.type === 'suit' && item.cost > 0);
         const tools = Object.entries(itemData).filter(([name, item]) => item.type === 'tool' && item.cost > 0);
         const consumables = Object.entries(itemData).filter(([name, item]) => item.type === 'consumable');
@@ -677,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
             `;
         });
-    
+
         let toolHtml = '<tr class="category-header"><th colspan="3">Tools</th></tr>';
         tools.forEach(([name, item]) => {
             const btn = globalState.ownedItems.includes(name)
@@ -697,10 +708,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let consumableHtml = '<tr class="category-header"><th colspan="3">Consumables</th></tr>';
         consumables.forEach(([name, item]) => {
+            const count = globalState.consumables[name] || 0;
             consumableHtml += `
                 <tr>
                     <td>
-                        <div class="item-name">${name}</div>
+                        <div class="item-name">${name} (Owned: ${count})</div>
                         <div class="item-desc">${item.desc}</div>
                     </td>
                     <td class="item-price">${item.cost} kCal</td>
@@ -788,21 +800,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (player.suitWarmerTime > 0) {
-            player.suitWarmerTime = Math.max(0, player.suitWarmerTime - minutes);
+            player.suitWarmerTime = Math.max(0, player.suitWarmerTime - (minutes * 60)); // Time is in seconds
             if(player.suitWarmerTime === 0) {
                 addChatMessage("Mission Control", "Suit warmer depleted. Exposure to extreme cold is now a critical threat.");
             }
         }
 
-        player.kCals-=Math.floor(minutes/10);
+        // kCal consumption over time seems to be removed in favor of energy
+        // player.kCals-=Math.floor(minutes/10);
         updateStatsDisplay();
     }
 
     function checkColdDamage() {
         const poiKey = getPoiKeyByCoords(currentCoords.x, currentCoords.y);
-        if (poiKey && poiMap[poiKey].isCold && player.suitWarmerTime <= 0) {
+        const suit = playerLoadout.suit;
+        const providesWarmth = loadoutModifiers.suits[suit].providesWarmth || false;
+
+        if (poiKey && poiMap[poiKey].isCold && player.suitWarmerTime <= 0 && !providesWarmth) {
              if (!coldInterval) {
-                addChatMessage("Mission Control", "Warning: Extreme cold detected. Suit integrity failing. Activate a warmer unit immediately.");
+                addChatMessage("Mission Control", "Warning: Extreme cold detected. Suit integrity failing. Activate a warmer unit or equip Thermal Gear.");
                 coldInterval = setInterval(() => {
                     player.health -= 5;
                     updateStatsDisplay();
@@ -811,10 +827,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         clearInterval(coldInterval);
                         coldInterval = null;
                     }
-                }, 5000);
+                }, 5000); // 5 damage every 5 seconds
             }
         } else {
             if (coldInterval) {
+                addChatMessage("Mission Control", "Temperature levels stabilized.");
                 clearInterval(coldInterval);
                 coldInterval = null;
             }
