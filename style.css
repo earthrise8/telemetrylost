@@ -96,6 +96,9 @@ body {
 #store-items .item-price { text-align: right; width: 150px; }
 #store-items .item-action { text-align: center; width: 120px; }
 #store-items .store-button { width: 100px; }
+#store-items .quantity-controls { display: flex; align-items: center; justify-content: center; }
+#store-items .quantity-controls input { width: 40px; text-align: center; background: #222; color: #0F0; border: 1px solid #0F0; margin: 0 5px; }
+
 
 
 #setup-screen, #name-screen { text-align: center; width: 100%; max-width: 800px; }

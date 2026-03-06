@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bankedKcalsEl = document.getElementById('banked-kcals');
     const carriedKcalsEl = document.getElementById('carried-kcals');
     const energyEl = document.getElementById('energy');
+    const suitWarmerTimeEl = document.getElementById('suit-warmer-time');
     const timeEl = document.getElementById('time');
     const coordinatesEl = document.getElementById('coordinates');
     const playerSuitEl = document.getElementById('player-suit');
@@ -45,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let gameTime = 420;
     let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
     let storyIndex = 0;
+    let coldInterval = null;
     const backstory = [
         "The year is 2242. You are a Cycler, a clone consciousness uploaded into a new body every time you die.",
         "Your mission is to explore the frozen world of Niflheim, a planet with the potential for human colonization.",
@@ -57,12 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
         deaths: 0,
         exploredTiles: ['4,5'],
         ownedItems: [],
+        consumables: { 'Ration Pack': 0, 'Warmer Unit': 0 },
         crystalCave_crystals: Math.floor(Math.random() * 4) + 2, // 2 to 5 crystals
         dailyMission: null,
     };
 
-    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Unknown": "FC-UNX-000" };
-    const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier' }, 'iceFields': { x: 3, y: 5, name: 'Fields' }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
+    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Unknown": "FC-UNX-000" };
+    const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier', isCold: true }, 'iceFields': { x: 3, y: 5, name: 'Fields', isCold: true }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
     const itemData = {
         'Survey Gear': { type: 'suit', cost: 0, desc: 'Reduced travel distance and energy consumption for movement.' },
         'Thermal Gear': { type: 'suit', cost: 800, desc: 'Allows for further exploration with slightly increased energy consumption.' },
@@ -74,7 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'Ice Core Sample': { type: 'sample', sell: 150, desc: 'A pristine ice core.' },
         'Alien Microbe': { type: 'sample', sell: 500, desc: 'A potentially groundbreaking discovery.' },
         'Strange Artifact': { type: 'misc', desc: 'A strange, pulsating artifact. It feels warm to the touch.' },
-        'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' }
+        'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' },
+        'Ration Pack': { type: 'consumable', cost: 100, desc: 'A high-energy food pack. Restores 50 energy.' },
+        'Warmer Unit': { type: 'consumable', cost: 250, desc: 'Provides 5 minutes of protection from extreme cold.' },
     };
     const loadoutModifiers = { 
         suits: { 
@@ -167,6 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (globalState.dailyMission === undefined) {
             globalState.dailyMission = null;
+        }
+        if (globalState.consumables === undefined) {
+            globalState.consumables = { 'Ration Pack': 0, 'Warmer Unit': 0 };
         }
         const playerName = localStorage.getItem('playerName');
         if (playerName) {
@@ -274,6 +282,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isFirstTime) {
             localStorage.setItem('hasPlayedBefore', 'true');
             globalState.ownedItems.push(playerLoadout.suit, playerLoadout.tool);
+            globalState.consumables['Ration Pack'] = 2;
+            globalState.consumables['Warmer Unit'] = 1;
             saveGlobalState();
         }
 
@@ -285,8 +295,17 @@ document.addEventListener('DOMContentLoaded', () => {
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
             kCals: 0, 
             energy: 100,
+            suitWarmerTime: 0,
             backpack: []
         };
+
+        Object.entries(globalState.consumables).forEach(([name, count]) => {
+            for (let i = 0; i < count; i++) {
+                player.backpack.push(name);
+            }
+        });
+
+
         gameTime = 420;
         currentCoords = { x: 4, y: 5 };
 
@@ -306,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function triggerEvent() {
         advanceTime(10);
+        checkColdDamage();
         checkMissionCompletion({ type: 'location', coords: currentCoords });
         const poiKey = getPoiKeyByCoords(currentCoords.x, currentCoords.y);
         let eventPool = events.wasteland;
@@ -330,7 +350,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const bankedKCal = player.kCals;
             globalState.bankedkCals += bankedKCal + samplesValue;
             player.kCals = 0;
-            player.backpack = remainingBackpack;
+
+            globalState.consumables = { 'Ration Pack': 0, 'Warmer Unit': 0 };
+            remainingBackpack.forEach(item => {
+                if (globalState.consumables[item] !== undefined) {
+                    globalState.consumables[item]++;
+                }
+            });
+
+            player.backpack = [];
+
             saveGlobalState();
 
             let logMessage = `Returned to Base.`;
@@ -431,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bankedKcalsEl.textContent = globalState.bankedkCals || 0;
         carriedKcalsEl.textContent = player.kCals || 0;
         energyEl.textContent = player.energy || 0;
+        suitWarmerTimeEl.textContent = `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`;
         timeEl.textContent = `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
         coordinatesEl.textContent = `${currentCoords.x}, ${currentCoords.y}`;
         playerSuitEl.textContent=playerLoadout.suit || 'N/A';
@@ -463,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         eventText.innerHTML = '<h2>Inventory</h2>';
         actionButtons.innerHTML = '';
     
-        const inventoryItems = new Set(globalState.ownedItems.concat(player.backpack || []));
+        const inventoryItems = new Set(player.backpack || []);
     
         if (inventoryItems.size > 0) {
             const list = document.createElement('ul');
@@ -475,17 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const li = document.createElement('li');
     
                     const countInBackpack = (player.backpack || []).filter(i => i === itemName).length;
-                    let displayText = itemName;
-
-                    if (itemDef.type === 'suit' && playerLoadout.suit === itemName) {
-                        displayText += ' (Equipped)';
-                    } else if (itemDef.type === 'tool' && playerLoadout.tool === itemName) {
-                        displayText += ' (Equipped)';
-                    }
-    
-                    if (countInBackpack > 0 && (itemDef.type === 'sample' || itemDef.type === 'misc')) {
-                        displayText += ` (x${countInBackpack})`;
-                    }
+                    let displayText = `${itemName} (x${countInBackpack})`;
     
                     li.textContent = displayText;
                     li.style.cursor = 'pointer';
@@ -497,6 +517,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     li.onclick = () => {
                         eventText.innerHTML = `<h2>${itemName}</h2><p>${itemDef.desc}</p>`;
                         actionButtons.innerHTML = '';
+
+                        if (itemDef.type === 'consumable') {
+                            const useButton = document.createElement('button');
+                            useButton.textContent = 'Use';
+                            useButton.onclick = () => useConsumable(itemName);
+                            actionButtons.appendChild(useButton);
+                        }
 
                         if ((itemDef.type === 'suit' && playerLoadout.suit !== itemName) || (itemDef.type === 'tool' && playerLoadout.tool !== itemName)) {
                             const equipButton = document.createElement('button');
@@ -537,6 +564,23 @@ document.addEventListener('DOMContentLoaded', () => {
         backToGameButton.textContent = 'Back to Game';
         backToGameButton.onclick = triggerEvent;
         actionButtons.appendChild(backToGameButton);
+    }
+
+    function useConsumable(itemName) {
+        const itemIndex = player.backpack.indexOf(itemName);
+        if (itemIndex > -1) {
+            if (itemName === 'Ration Pack') {
+                player.energy = Math.min(100, player.energy + 50);
+                player.backpack.splice(itemIndex, 1);
+                logEvent("You consume a Ration Pack, restoring 50 energy.");
+            } else if (itemName === 'Warmer Unit') {
+                player.suitWarmerTime += 300; // 5 minutes
+                player.backpack.splice(itemIndex, 1);
+                logEvent("You activate a Warmer Unit. You feel a comforting warmth spread through your suit.");
+            }
+            updateStatsDisplay();
+            openBackpack(); // Refresh backpack
+        }
     }
 
     function standardContinue(){
@@ -615,7 +659,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
         const suits = Object.entries(itemData).filter(([name, item]) => item.type === 'suit' && item.cost > 0);
         const tools = Object.entries(itemData).filter(([name, item]) => item.type === 'tool' && item.cost > 0);
-    
+        const consumables = Object.entries(itemData).filter(([name, item]) => item.type === 'consumable');
+
         let suitHtml = '<tr class="category-header"><th colspan="3">Suits</th></tr>';
         suits.forEach(([name, item]) => {
             const btn = globalState.ownedItems.includes(name)
@@ -650,10 +695,41 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        storeTable.innerHTML = suitHtml + toolHtml;
+        let consumableHtml = '<tr class="category-header"><th colspan="3">Consumables</th></tr>';
+        consumables.forEach(([name, item]) => {
+            consumableHtml += `
+                <tr>
+                    <td>
+                        <div class="item-name">${name}</div>
+                        <div class="item-desc">${item.desc}</div>
+                    </td>
+                    <td class="item-price">${item.cost} kCal</td>
+                    <td class="item-action"><button class="store-button" onclick="window.telemetryGame.buyItem('${name}')" ${globalState.bankedkCals < item.cost ? 'disabled' : ''}>Buy</button></td>
+                </tr>
+            `;
+        });
+
+        storeTable.innerHTML = suitHtml + toolHtml + consumableHtml;
+        storeOverlay.classList.remove('hidden');
     }
 
-    function buyItem(itemName){const item=itemData[itemName];if(globalState.bankedkCals>=item.cost&&!globalState.ownedItems.includes(itemName)){globalState.bankedkCals-=item.cost;globalState.ownedItems.push(itemName);saveGlobalState();openStore();updateStatsDisplay();}}
+    function buyItem(itemName) {
+        const item = itemData[itemName];
+        if (globalState.bankedkCals >= item.cost) {
+            globalState.bankedkCals -= item.cost;
+            if (item.type === 'consumable') {
+                if (!globalState.consumables[itemName]) {
+                    globalState.consumables[itemName] = 0;
+                }
+                globalState.consumables[itemName]++;
+            } else if (!globalState.ownedItems.includes(itemName)) {
+                globalState.ownedItems.push(itemName);
+            }
+            saveGlobalState();
+            openStore();
+            updateStatsDisplay();
+        }
+    }
     
     function updateMap() {
         mapGrid.style.transform = `translate(${mapState.x}px, ${mapState.y}px) scale(${mapState.scale})`;
@@ -678,6 +754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     cell.classList.add('unlocked');
                     if (poiKey) {
                         cell.classList.add('poi');
+                        if (poiMap[poiKey].isCold) cell.classList.add('cold');
                         label.textContent = poiMap[poiKey].name;
                         if (poiKey === 'landingZone') { cell.classList.add('base'); }
                     } else {
@@ -710,8 +787,38 @@ document.addEventListener('DOMContentLoaded', () => {
             assignDailyMission();
         }
 
+        if (player.suitWarmerTime > 0) {
+            player.suitWarmerTime = Math.max(0, player.suitWarmerTime - minutes);
+            if(player.suitWarmerTime === 0) {
+                addChatMessage("Mission Control", "Suit warmer depleted. Exposure to extreme cold is now a critical threat.");
+            }
+        }
+
         player.kCals-=Math.floor(minutes/10);
         updateStatsDisplay();
+    }
+
+    function checkColdDamage() {
+        const poiKey = getPoiKeyByCoords(currentCoords.x, currentCoords.y);
+        if (poiKey && poiMap[poiKey].isCold && player.suitWarmerTime <= 0) {
+             if (!coldInterval) {
+                addChatMessage("Mission Control", "Warning: Extreme cold detected. Suit integrity failing. Activate a warmer unit immediately.");
+                coldInterval = setInterval(() => {
+                    player.health -= 5;
+                    updateStatsDisplay();
+                    if (player.health <= 0) {
+                        handleDeath('Hypothermia');
+                        clearInterval(coldInterval);
+                        coldInterval = null;
+                    }
+                }, 5000);
+            }
+        } else {
+            if (coldInterval) {
+                clearInterval(coldInterval);
+                coldInterval = null;
+            }
+        }
     }
     
     function scanArea() {
