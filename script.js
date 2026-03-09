@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
     let storyIndex = 0;
     let coldInterval = null;
+    let adminReveal = false;
     const backstory = [
         "The year is 2052. You are an Expendable, a human who can be forced into a dangerous situation, die, and be re-printed.",
         "Your mission as a part of this landing expediton is to explore the frozen planet of Niflheim.",
@@ -224,6 +225,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadGlobalState();
         setupEventListeners();
+        // Add admin button
+        const adminBtn = document.createElement('button');
+        adminBtn.textContent = 'Admin';
+        adminBtn.onclick = openAdminPanel;
+        devResetBtn.parentNode.appendChild(adminBtn);
         const hasPlayedBefore = localStorage.getItem('hasPlayedBefore');
         if (hasPlayedBefore) {
             showSetupScreen(false);
@@ -411,7 +417,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setupScreen.classList.add('hidden');
         mainWrapper.classList.remove('hidden');
-
+        ocularInterface.classList.remove('hidden');
+        
         player = { 
             name: player.name || characterNameInput.value,
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
@@ -628,6 +635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function handleDeath(cause) {
+        ocularInterface.classList.add('hidden');
         mainWrapper.classList.add('hidden');
         const telemetryOverlay = document.getElementById('telemetry-lost-overlay');
         telemetryOverlay.classList.remove('hidden');
@@ -1047,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (isCurrent) { cell.classList.add('current'); }
 
-                if (isExplored) {
+                if (adminReveal || isExplored) {
                     cell.classList.add('unlocked');
                     if (poiKey) {
                         cell.classList.add('poi');
@@ -1074,6 +1082,48 @@ document.addEventListener('DOMContentLoaded', () => {
     function addChatMessage(sender,message){const d=document.createElement('div');d.className='chat-message';d.innerHTML=`<span class="sender">${sender}:</span> <span class="message">"${message}"</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;}
     function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger() && !(m.id === "findCave" && globalState.deaths === 0)){addChatMessage(m.sender,m.message);}})}
     function closeStore(){storeOverlay.classList.add('hidden');}
+    
+    function openAdminPanel() {
+        let adminOverlay = document.getElementById('admin-overlay');
+        if (!adminOverlay) {
+            adminOverlay = document.createElement('div');
+            adminOverlay.id = 'admin-overlay';
+            adminOverlay.className = 'overlay';
+            adminOverlay.innerHTML = `
+                <div class="overlay-content">
+                    <h2>Admin Panel</h2>
+                    <label>Reveal Map: <input type="checkbox" id="reveal-map-checkbox"></label><br><br>
+                    <label>Add kCals: <input type="number" id="add-kcals-input" min="0" value="1000"></label>
+                    <button id="add-kcals-btn">Add kCals</button><br><br>
+                    <button id="close-admin-btn">Close</button>
+                </div>
+            `;
+            document.body.appendChild(adminOverlay);
+            
+            const revealCheckbox = document.getElementById('reveal-map-checkbox');
+            revealCheckbox.checked = adminReveal;
+            revealCheckbox.onchange = () => { 
+                adminReveal = revealCheckbox.checked; 
+                updateMap(); 
+            };
+            
+            const addKcalsInput = document.getElementById('add-kcals-input');
+            const addKcalsBtn = document.getElementById('add-kcals-btn');
+            addKcalsBtn.onclick = () => {
+                const amount = parseInt(addKcalsInput.value);
+                if (!isNaN(amount) && amount > 0) {
+                    globalState.bankedkCals += amount;
+                    saveGlobalState();
+                    updateStatsDisplay();
+                    addKcalsInput.value = '';
+                }
+            };
+            
+            const closeAdminBtn = document.getElementById('close-admin-btn');
+            closeAdminBtn.onclick = () => adminOverlay.classList.add('hidden');
+        }
+        adminOverlay.classList.remove('hidden');
+    }
     
     function advanceTime(minutes){
         const oldDay = Math.floor(gameTime / 1440);
