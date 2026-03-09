@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const missionTemplates = [
         ...Object.keys(poiMap).filter(p => p !== 'landingZone').map(p => ({ type: 'explore', target: p, reward: 500, penalty: 200, text: `Scout the ${poiMap[p].name} at (${poiMap[p].x}, ${poiMap[p].y}).`})),
-        ...Object.keys(itemData).filter(i => itemData[i].type === 'sample').map(i => ({ type: 'collect', target: i, reward: 750, penalty: 350, text: `Acquire a sample of "${i}".`}))
+        ...Object.keys(itemData).filter(i => itemData[i].type === 'sample').map(i => ({ type: 'collect', target: i, reward: 750, penalty: 350, text: `Acquire a sample of \"${i}\".`}))
     ];
 
     function getPoiKeyByCoords(x, y) { return Object.keys(poiMap).find(key => poiMap[key].x === x && poiMap[key].y === y); }
@@ -226,11 +226,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         loadGlobalState();
         setupEventListeners();
-        // Add admin button
+        
+        const devButtonContainer = document.createElement('div');
+        devButtonContainer.id = 'dev-button-container';
+        
+        devResetBtn.parentNode.insertBefore(devButtonContainer, devResetBtn);
+        devButtonContainer.appendChild(devResetBtn);
+
         const adminBtn = document.createElement('button');
         adminBtn.textContent = 'Admin';
+        adminBtn.id = 'admin-btn';
         adminBtn.onclick = openAdminPanel;
-        devResetBtn.parentNode.appendChild(adminBtn);
+        devButtonContainer.appendChild(adminBtn);
+
         const hasPlayedBefore = localStorage.getItem('hasPlayedBefore');
         if (hasPlayedBefore) {
             showSetupScreen(false);

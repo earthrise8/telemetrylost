@@ -10,24 +10,38 @@ body {
     overflow: hidden;
 }
 
-#dev-reset-btn {
+#dev-button-container {
     position: fixed;
     top: 10px;
     right: 10px;
+    z-index: 200;
+}
+
+#dev-reset-btn, #admin-btn {
     background-color: #900;
     color: #FFF;
     border: 1px solid #F00;
     padding: 8px 12px;
     cursor: pointer;
-    z-index: 200;
     font-family: 'Courier New', Courier, monospace;
     font-weight: bold;
     box-shadow: 0 0 5px #F00;
     text-shadow: 0 0 5px #F00;
     transition: all 0.1s ease;
+    margin-left: 10px;
 }
-#dev-reset-btn:hover { background-color: #C00; box-shadow: 0 0 10px #F00; text-shadow: 0 0 10px #F00; }
-#dev-reset-btn:active { background-color: #A00; box-shadow: inset 0 0 10px #F00; transform: scale(0.98); }
+
+#dev-reset-btn:hover, #admin-btn:hover {
+    background-color: #C00;
+    box-shadow: 0 0 10px #F00;
+    text-shadow: 0 0 10px #F00;
+}
+
+#dev-reset-btn:active, #admin-btn:active {
+    background-color: #A00;
+    box-shadow: inset 0 0 10px #F00;
+    transform: scale(0.98);
+}
 
 #main-wrapper { display: flex; width: 95%; max-width: 1200px; border: 2px solid #0F0; height: 90vh; }
 .hidden { display: none !important; }
@@ -44,6 +58,19 @@ body {
 .map-cell.unlocked { background-color: #444; color: #0F0; }
 .map-cell.poi { border: 1px solid #0FF; }
 .map-cell.base { background-color: #0FF; color: #000; }
+
+.map-cell.current::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background-color: red;
+    border-radius: 50%;
+    z-index: 2;
+}
 
 .map-cell.mission-objective {
     outline: 2px solid #FFD700;
