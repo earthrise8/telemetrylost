@@ -45,19 +45,6 @@ body {
 .map-cell.poi { border: 1px solid #0FF; }
 .map-cell.base { background-color: #0FF; color: #000; }
 
-.map-cell.current::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 6px;
-    height: 6px;
-    background-color: red;
-    border-radius: 50%;
-    z-index: 2;
-}
-
 .map-cell.mission-objective {
     outline: 2px solid #FFD700;
     outline-offset: -2px;

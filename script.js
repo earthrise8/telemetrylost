@@ -43,26 +43,27 @@ document.addEventListener('DOMContentLoaded', () => {
     let expendable = {};
     let globalState = {};
     let playerLoadout = {};
-    let currentCoords = { x: 4, y: 5 };
+    let currentCoords = { x: 0, y: 0 };
     let gameOver = false;
     let gameTime = 420;
     let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
     let storyIndex = 0;
     let coldInterval = null;
     let adminReveal = false;
+    const mapBounds = { minX: -4, maxX: 5, minY: -5, maxY: 4 };
     const backstory = [
         "The year is 2052. You are an Expendable, a human who can be forced into a dangerous situation, die, and be re-printed.",
         "Your mission as a part of this landing expediton is to explore the frozen planet of Niflheim.",
         "You are disposable. Your memories are backed up, but your life is not. Every time you die, your loose all your memories up until your last backup point.",
         "kCals are the currency of the Colony. You can earn kCals by exploring, gathering samples, and completing your tasks. Use them to buy better gear and supplies.",
         "Make sure you don't run out of energy. You will die and waste colony resources.",
-        "You\'ve just come out of the cycler. Your previous iteration... didn't upload. Now it\'s your turn. Good luck, Expendable."
+        "You\'ve just come out of the cycler. Your previous iteration... didn\'t upload. Now it\'s your turn. Good luck, Expendable."
     ];
 
     const initialGlobalState = {
         bankedkCals: 500,
         deaths: 0,
-        exploredTiles: ['4,5'],
+        exploredTiles: ['0,0'],
         ownedItems: [],
         consumables: { 'Ration Pack': 0, 'Warmer Unit': 0 },
         crystalCave_crystals: Math.floor(Math.random() * 4) + 2, // 2 to 5 crystals
@@ -74,46 +75,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Unknown": "FC-UNX-000" };
     const poiMap = {
-    'landingZone': { x: 4, y: 5, name: 'Base' },
-    'glacier': { x: 4, y: 4, name: 'Glacier', isCold: true },
-    'iceFields': { x: 3, y: 5, name: 'Fields', isCold: true },
-    'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' },
-    'crevasse': { x: 4, y: 6, name: 'Crevasse' },
-    'thermalVents': { x: 3, y: 4, name: 'Vents' },
-    'crystalCave': { x: 1, y: 8, name: 'Cave' },
-    'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' },
-    'frozenForest': { x: 1, y: 1, name: 'Frozen Forest' },
-    'wreckage': { x: 8, y: 8, name: 'Wreckage' },
-    'researchOutpost': { x: 7, y: 2, name: 'Outpost' },
-    'deepCrater': { x: 2, y: 7, name: 'Crater' },
-    'iceCave1': { x: 0, y: 3, name: 'Ice Cave', isCold: true },
-    'iceCave2': { x: 9, y: 6, name: 'Ice Cave', isCold: true },
-    'geyserField': { x: 5, y: 1, name: 'Geysers' },
-    'magneticField': { x: 8, y: 0, name: 'M-Field' },
-    'frozenRiver': { x: 2, y: 0, name: 'Frozen River', isCold: true },
-    'iceArch': { x: 6, y: 9, name: 'Ice Arch' },
-    'meteorSite': { x: 9, y: 3, name: 'Meteor Site' },
-    'fungalCavern': { x: 0, y: 9, name: 'Fungal Cavern' },
-    'obsidianPlain': { x: 5, y: 8, name: 'Obsidian Plain' },
-    'unstableIce': { x: 1, y: 5, name: 'Unstable Ice' },
-    'abandonedMine': { x: 7, y: 7, name: 'Mine' },
-    'shelter': { x: 3, y: 9, name: 'Shelter' },
-    'commsTower': { x: 9, y: 1, name: 'Comms Tower' },
-    'outcrop2': { x: 0, y: 6, name: 'Outcrop' },
-    'outcrop3': { x: 8, y: 4, name: 'Outcrop' },
-    'iceSpires': { x: 6, y: 3, name: 'Ice Spires', isCold: true },
-    'deepFissure': { x: 3, y: 1, name: 'Fissure' },
-    'hydrothermalVent': { x: 0, y: 0, name: 'Hydro Vent' },
-    'snowyPeak': { x: 9, y: 9, name: 'Snowy Peak', isCold: true },
-    'iceWall': { x: 2, y: 3, name: 'Ice Wall', isCold: true },
-    'frozenLake': { x: 7, y: 5, name: 'Frozen Lake' },
-    'crystalOutcropping': { x: 5, y: 7, name: 'Crystal Outcropping' },
-    'ancientGlacier': { x: 1, y: 3, name: 'Ancient Glacier', isCold: true },
-    'subsurfaceRiver': { x: 4, y: 8, name: 'Subsurface River' },
-    'iceGorge': { x: 8, y: 2, name: 'Ice Gorge', isCold: true },
-    'frozenWaterfall': { x: 6, y: 0, name: 'Frozen Waterfall' },
-    'geothermalPool': { x: 3, y: 7, name: 'Geothermal Pool' },
-    'iceCanyon': { x: 9, y: 7, name: 'Ice Canyon', isCold: true }
+    'landingZone': { x: 0, y: 0, name: 'Base' },
+    'glacier': { x: 0, y: -1, name: 'Glacier', isCold: true },
+    'iceFields': { x: -1, y: 0, name: 'Fields', isCold: true },
+    'rockyOutcrop': { x: 1, y: 0, name: 'Outcrop' },
+    'crevasse': { x: 0, y: 1, name: 'Crevasse' },
+    'thermalVents': { x: -1, y: -1, name: 'Vents' },
+    'crystalCave': { x: -3, y: 3, name: 'Cave' },
+    'boulderPass': { x: 2, y: 0, name: 'Boulder Pass' },
+    'frozenForest': { x: -3, y: -4, name: 'Frozen Forest' },
+    'wreckage': { x: 4, y: 3, name: 'Wreckage' },
+    'researchOutpost': { x: 3, y: -3, name: 'Outpost' },
+    'deepCrater': { x: -2, y: 2, name: 'Crater' },
+    'iceCave1': { x: -4, y: -2, name: 'Ice Cave', isCold: true },
+    'iceCave2': { x: 5, y: 1, name: 'Ice Cave', isCold: true },
+    'geyserField': { x: 1, y: -4, name: 'Geysers' },
+    'magneticField': { x: 4, y: -5, name: 'M-Field' },
+    'frozenRiver': { x: -2, y: -5, name: 'Frozen River', isCold: true },
+    'iceArch': { x: 2, y: 4, name: 'Ice Arch' },
+    'meteorSite': { x: 5, y: -2, name: 'Meteor Site' },
+    'fungalCavern': { x: -4, y: 4, name: 'Fungal Cavern' },
+    'obsidianPlain': { x: 1, y: 3, name: 'Obsidian Plain' },
+    'unstableIce': { x: -3, y: 0, name: 'Unstable Ice' },
+    'abandonedMine': { x: 3, y: 2, name: 'Mine' },
+    'shelter': { x: -1, y: 4, name: 'Shelter' },
+    'commsTower': { x: 5, y: -4, name: 'Comms Tower' },
+    'outcrop2': { x: -4, y: 1, name: 'Outcrop' },
+    'outcrop3': { x: 4, y: -1, name: 'Outcrop' },
+    'iceSpires': { x: 2, y: -2, name: 'Ice Spires', isCold: true },
+    'deepFissure': { x: -1, y: -4, name: 'Fissure' },
+    'hydrothermalVent': { x: -4, y: -5, name: 'Hydro Vent' },
+    'snowyPeak': { x: 5, y: 4, name: 'Snowy Peak', isCold: true },
+    'iceWall': { x: -2, y: -2, name: 'Ice Wall', isCold: true },
+    'frozenLake': { x: 3, y: 0, name: 'Frozen Lake' },
+    'crystalOutcropping': { x: 1, y: 2, name: 'Crystal Outcropping' },
+    'ancientGlacier': { x: -3, y: -2, name: 'Ancient Glacier', isCold: true },
+    'subsurfaceRiver': { x: 0, y: 3, name: 'Subsurface River' },
+    'iceGorge': { x: 4, y: -3, name: 'Ice Gorge', isCold: true },
+    'frozenWaterfall': { x: 2, y: -5, name: 'Frozen Waterfall' },
+    'geothermalPool': { x: -1, y: 2, name: 'Geothermal Pool' },
+    'iceCanyon': { x: 5, y: 2, name: 'Ice Canyon', isCold: true }
 };
     const itemData = {
         'Survey Gear': { type: 'suit', cost: 0, desc: 'Reduced travel distance and energy consumption for movement.' },
@@ -152,16 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
         boulderPass: [{ text: "A massive boulder blocks the path.", actions: [{ label: "Clear Boulder", func: clearBoulder }] }],
         wasteland: [{ text: "A vast, snowy wasteland stretches in all directions.", actions: [{ label: "Scan Area", func: scanArea }] }]
     };
-    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", coords: {x: 1, y: 8}, trigger: () => true, isComplete: () => globalState.exploredTiles.includes('1,8') }];
+    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (-3, 3). Investigate.", coords: {x: -3, y: 3}, trigger: () => true, isComplete: () => globalState.exploredTiles.includes('-3,3') }];
 
     // locations of hidden creeper nests scattered across the survey grid
     const creeperNests = [
-        {x: 0, y: 0},
-        {x: 9, y: 9},
-        {x: 2, y: 5},
-        {x: 5, y: 2},
-        {x: 7, y: 7},
-        {x: 3, y: 8}
+        {x: -4, y: -5},
+        {x: 5, y: 4},
+        {x: -2, y: 0},
+        {x: 1, y: -3},
+        {x: 3, y: 2},
+        {x: -1, y: 3}
     ];
 
     function isCreeperNest(x,y){ return creeperNests.some(c=>c.x===x && c.y===y); }
@@ -285,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadGlobalState() {
         const savedState = localStorage.getItem('telemetryLostGlobalState');
         globalState = savedState ? JSON.parse(savedState) : JSON.parse(JSON.stringify(initialGlobalState));
-        if (!globalState.exploredTiles) { globalState.exploredTiles = ['4,5']; }
+        if (!globalState.exploredTiles) { globalState.exploredTiles = ['0,0']; }
         if (globalState.crystalCave_crystals === undefined) {
             globalState.crystalCave_crystals = Math.floor(Math.random() * 4) + 2; // 2 to 5 crystals
         }
@@ -429,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         gameTime = 420;
-        currentCoords = { x: 4, y: 5 };
+        currentCoords = { x: 0, y: 0 };
 
         chatLog.innerHTML = '';
         addChatMessage("Mission Control", `Welcome, Cycler ${expendable.name}-${globalState.deaths}. Explore, gather data, stay alive.`);
@@ -528,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const homeBtn = document.createElement('button');
         homeBtn.textContent = poiKey !== 'landingZone' ? 'HOME' : 'SLEEP';
         homeBtn.id = 'nav-home';
-        homeBtn.onclick = () => poiKey !== 'landingZone' ? moveTo(4, 5) : sleep();
+        homeBtn.onclick = () => poiKey !== 'landingZone' ? moveTo(0, 0) : sleep();
         homeBtn.className = 'compass-btn';
         compassGrid.appendChild(homeBtn);
         
@@ -628,8 +629,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         mapContainer.addEventListener('wheel',e=>{e.preventDefault();mapState.scale+=e.deltaY*-0.001;mapState.scale=Math.min(Math.max(0.5,mapState.scale),4);updateMap();});
-        mapContainer.addEventListener('mousedown',e=>{if(e.button!==2)return;e.preventDefault();mapState.isPanning=true;mapContainer.style.cursor='grabbing';mapState.startX=e.clientX-mapState.x;mapState.startY=e.clientY-mapState.y;});
-        window.addEventListener('mouseup',e=>{if(e.button!==2||!mapState.isPanning)return;mapState.isPanning=false;mapContainer.style.cursor='grab';});
+        mapContainer.addEventListener('mousedown',e=>{if(e.button!==0)return;e.preventDefault();mapState.isPanning=true;mapContainer.style.cursor='grabbing';mapState.startX=e.clientX-mapState.x;mapState.startY=e.clientY-mapState.y;});
+        window.addEventListener('mouseup',e=>{if(e.button!==0||!mapState.isPanning)return;mapState.isPanning=false;mapContainer.style.cursor='grab';});
         window.addEventListener('mousemove',e=>{if(!mapState.isPanning)return;e.preventDefault();mapState.x=e.clientX-mapState.startX;mapState.y=e.clientY-mapState.startY;updateMap();});
         mapContainer.addEventListener('contextmenu',e=>e.preventDefault());
     }
@@ -869,16 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (direction === 'east') targetX++;
         if (direction === 'west') targetX--;
 
-        // const distance = Math.abs(targetX - 4) + Math.abs(targetY - 5);
-        // const suit = playerLoadout.suit;
-        // if (distance > loadoutModifiers.suits[suit].maxDistance) {
-        //     logEvent("Your suit doesn\'t have the range to go that far.");
-        //     addChatMessage("Mission Control", "Exceeding suit\'s operational range is not advised. Return to a closer distance to base.");
-        //     standardContinue();
-        //     return;
-        // }
-
-        if (targetX < 0 || targetX > 9 || targetY < 0 || targetY > 9) {
+        if (targetX < mapBounds.minX || targetX > mapBounds.maxX || targetY < mapBounds.minY || targetY > mapBounds.maxY) {
             logEvent("You are at the edge of the designated survey area.");
             addChatMessage("Mission Control", "Further deviation from the survey zone is not authorized. Return to the designated grid.");
             standardContinue();
@@ -1041,8 +1033,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mapGrid.innerHTML = '';
         const activeMission = missions.find(m => !m.isComplete() && m.trigger());
 
-        for (let y = 0; y < 10; y++) {
-            for (let x = 0; x < 10; x++) {
+        for (let y = mapBounds.minY; y <= mapBounds.maxY; y++) {
+            for (let x = mapBounds.minX; x <= mapBounds.maxX; x++) {
                 const cell = document.createElement('div');
                 cell.classList.add('map-cell');
                 const label = document.createElement('div');
@@ -1246,7 +1238,7 @@ document.addEventListener('DOMContentLoaded', () => {
             standardContinue();
     
         } else {
-            logEvent("You've already harvested all the accessible crystals from this area. There are no more to collect.");
+            logEvent("You\'ve already harvested all the accessible crystals from this area. There are no more to collect.");
             standardContinue();
         }
     }
@@ -1255,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const suit = playerLoadout.suit;
         const energyCost = 5 + loadoutModifiers.suits[suit].actionEnergy;
         if (expendable.energy < energyCost) {
-            logEvent("You don't have enough energy to dig.");
+            logEvent("You don\'t have enough energy to dig.");
             standardContinue();
             return;
         }
@@ -1277,7 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const suit = playerLoadout.suit;
         const energyCost = 8 + loadoutModifiers.suits[suit].actionEnergy;
         if (expendable.energy < energyCost) {
-            logEvent("You don't have enough energy to drill.");
+            logEvent("You don\'t have enough energy to drill.");
             standardContinue();
             return;
         }
