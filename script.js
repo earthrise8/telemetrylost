@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const carriedKcalsEl = document.getElementById('carried-kcals');
     const energyEl = document.getElementById('energy');
     const suitWarmerTimeEl = document.getElementById('suit-warmer-time');
+    const suitWarmerDisplay = document.getElementById('suit-warmer-display');
     const timeEl = document.getElementById('time');
     const coordinatesEl = document.getElementById('coordinates');
     const playerSuitEl = document.getElementById('player-suit');
@@ -48,10 +49,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let storyIndex = 0;
     let coldInterval = null;
     const backstory = [
-        "The year is 2242. You are a Cycler, a clone consciousness uploaded into a new body every time you die.",
-        "Your mission is to explore the frozen world of Niflheim, a planet with the potential for human colonization.",
-        "You are disposable. Your memories are backed up, but your life is not. Each cycle is a new chance to complete your mission.",
-        "You\'ve just been recycled. Your previous iteration... failed. Now it\'s your turn. Good luck, Cycler."
+        "The year is 2052. You are an Expendable, a human who can be forced into a dangerous situation, die, and be re-printed.",
+        "Your mission as a part of this landing expediton is to explore the frozen planet of Niflheim.",
+        "You are disposable. Your memories are backed up, but your life is not. Every time you die, your loose all your memories up until your last backup point.",
+        "kCals are the currency of the Colony. You can earn kCals by exploring, gathering samples, and completing your tasks. Use them to buy better gear and supplies.",
+        "Make sure you don't run out of energy. You will die and waste colony resources.",
+        "You\'ve just come out of the cycler. Your previous iteration... didn't upload. Now it\'s your turn. Good luck, Expendable."
     ];
 
     const initialGlobalState = {
@@ -114,11 +117,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' },
         'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' },
         'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' },
+        'Drill': { type: 'tool', cost: 1500, desc: 'A powerful drill for extracting samples from hard surfaces.' },
+        'Shovel': { type: 'tool', cost: 800, desc: 'A sturdy shovel for digging in softer terrain.' },
         'Geological Scanner': { type: 'sample', sell: 200, desc: 'Data on rock composition.' },
         'Ice Core Sample': { type: 'sample', sell: 150, desc: 'A pristine ice core.' },
         'Alien Microbe': { type: 'sample', sell: 500, desc: 'A potentially groundbreaking discovery.' },
         'Strange Artifact': { type: 'misc', desc: 'A strange, pulsating artifact. It feels warm to the touch.' },
         'Damaged Logbook': { type: 'misc', desc: 'A damaged logbook. Most of it is unreadable, but you can make out a few words: "...unforeseen...not alone..."' },
+        'Field Report': { type: 'misc', sell: 300, desc: 'A compiled report of findings from a POI. Valuable for research.' },
         'Ration Pack': { type: 'consumable', cost: 100, desc: 'A high-energy food pack. Restores 50 energy.' },
         'Warmer Unit': { type: 'consumable', cost: 250, desc: 'An add-on for the Survey Gear that provides 5 minutes of protection from extreme cold.' },
     };
@@ -128,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2, providesWarmth: true }, 
             'Armoured Gear': { health: 150, maxDistance: 4, moveEnergy: 5, actionEnergy: -5 } 
         }, 
-        tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {} } 
+        tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {}, 'Drill': {}, 'Shovel': {} } 
     };
     const events = {
         landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "Sleep", func: sleep }] }],
@@ -169,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function startBackstory() {
         const playerName = newCharacterNameInput.value;
         if (!playerName) {
-            alert("Please enter a Cycler ID.");
+            alert("Please enter a name.");
             return;
         }
         localStorage.setItem('playerName', playerName);
@@ -401,33 +407,116 @@ document.addEventListener('DOMContentLoaded', () => {
             logEvent(event.text);
         }
 
-        const directions = ['North', 'South', 'East', 'West'];
-        directions.forEach(direction => {
-            const button = document.createElement('button');
-            button.textContent = `Go ${direction}`;
-            button.onclick = () => moveDirection(direction.toLowerCase());
-            actionButtons.appendChild(button);
-        });
-
-        if (poiKey !== 'landingZone') {
-            const returnButton = document.createElement('button');
-            returnButton.textContent = "Return to Base";
-            returnButton.onclick = () => moveTo(4, 5);
-            actionButtons.appendChild(returnButton);
-        }
-
+        // Create navigation compass section
+        const navSection = document.createElement('div');
+        navSection.id = 'nav-section';
+        
+        // Create compass grid
+        const compassGrid = document.createElement('div');
+        compassGrid.id = 'compass-grid';
+        compassGrid.className = 'compass';
+        
+        // Helper to create empty spacer
+        const createSpacer = () => {
+            const spacer = document.createElement('div');
+            spacer.className = 'empty';
+            return spacer;
+        };
+        
+        // Row 1: empty, N, empty
+        compassGrid.appendChild(createSpacer());
+        
+        const northBtn = document.createElement('button');
+        northBtn.textContent = 'N';
+        northBtn.id = 'nav-north';
+        northBtn.onclick = () => moveDirection('north');
+        northBtn.className = 'compass-btn';
+        compassGrid.appendChild(northBtn);
+        
+        compassGrid.appendChild(createSpacer());
+        
+        // Row 2: W, HOME, E
+        const westBtn = document.createElement('button');
+        westBtn.textContent = 'W';
+        westBtn.id = 'nav-west';
+        westBtn.onclick = () => moveDirection('west');
+        westBtn.className = 'compass-btn';
+        compassGrid.appendChild(westBtn);
+        
+        const homeBtn = document.createElement('button');
+        homeBtn.textContent = poiKey !== 'landingZone' ? 'HOME' : 'SLEEP';
+        homeBtn.id = 'nav-home';
+        homeBtn.onclick = () => poiKey !== 'landingZone' ? moveTo(4, 5) : sleep();
+        homeBtn.className = 'compass-btn';
+        compassGrid.appendChild(homeBtn);
+        
+        const eastBtn = document.createElement('button');
+        eastBtn.textContent = 'E';
+        eastBtn.id = 'nav-east';
+        eastBtn.onclick = () => moveDirection('east');
+        eastBtn.className = 'compass-btn';
+        compassGrid.appendChild(eastBtn);
+        
+        // Row 3: empty, S, empty
+        compassGrid.appendChild(createSpacer());
+        
+        const southBtn = document.createElement('button');
+        southBtn.textContent = 'S';
+        southBtn.id = 'nav-south';
+        southBtn.onclick = () => moveDirection('south');
+        southBtn.className = 'compass-btn';
+        compassGrid.appendChild(southBtn);
+        
+        compassGrid.appendChild(createSpacer());
+        
+        navSection.appendChild(compassGrid);
+        actionButtons.appendChild(navSection);
+        
+        // Create action buttons section
+        const actionSection = document.createElement('div');
+        actionSection.id = 'action-section';
+        
         if (event.actions) {
             event.actions.forEach(action => {
                 const button = document.createElement('button');
                 button.textContent = action.label;
                 button.onclick = action.func;
-                actionButtons.appendChild(button);
+                button.className = 'action-btn';
+                actionSection.appendChild(button);
             });
         }
+        
+        // Add dig actions if player has tools
+        if (poiKey && poiKey !== 'landingZone') {
+            if (globalState.ownedItems.includes('Shovel')) {
+                const digButton = document.createElement('button');
+                digButton.textContent = "Dig with Shovel";
+                digButton.onclick = digWithShovel;
+                digButton.className = 'action-btn';
+                actionSection.appendChild(digButton);
+            }
+            if (globalState.ownedItems.includes('Drill')) {
+                const drillButton = document.createElement('button');
+                drillButton.textContent = "Drill for Samples";
+                drillButton.onclick = drillForSamples;
+                drillButton.className = 'action-btn';
+                actionSection.appendChild(drillButton);
+            }
+            // Report Findings
+            const reportButton = document.createElement('button');
+            reportButton.textContent = "Report Findings";
+            reportButton.onclick = reportFindings;
+            reportButton.className = 'action-btn';
+            actionSection.appendChild(reportButton);
+        }
+        
         const backpackButton = document.createElement('button');
         backpackButton.textContent = "Backpack";
         backpackButton.onclick = openBackpack;
-        actionButtons.appendChild(backpackButton);
+        backpackButton.className = 'action-btn';
+        actionSection.appendChild(backpackButton);
+        
+        actionButtons.appendChild(actionSection);
         updateStatsDisplay();
     }
 
@@ -510,7 +599,13 @@ document.addEventListener('DOMContentLoaded', () => {
         flashOnChange(bankedKcalsEl, globalState.bankedkCals || 0);
         flashOnChange(carriedKcalsEl, player.kCals || 0);
         flashOnChange(energyEl, player.energy || 0);
-        flashOnChange(suitWarmerTimeEl, `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`);
+        // Only show suit warmer when active
+        if (player.suitWarmerTime > 0) {
+            suitWarmerDisplay.classList.remove('hidden');
+            flashOnChange(suitWarmerTimeEl, `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`);
+        } else {
+            suitWarmerDisplay.classList.add('hidden');
+        }
         flashOnChange(timeEl, `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`);
         flashOnChange(coordinatesEl, `${currentCoords.x}, ${currentCoords.y}`);
         flashOnChange(playerSuitEl, playerLoadout.suit || 'N/A');
@@ -981,6 +1076,56 @@ document.addEventListener('DOMContentLoaded', () => {
             logEvent("You've already harvested all the accessible crystals from this area. There are no more to collect.");
             standardContinue();
         }
+    }
+
+    function digWithShovel() {
+        const suit = playerLoadout.suit;
+        const energyCost = 5 + loadoutModifiers.suits[suit].actionEnergy;
+        if (player.energy < energyCost) {
+            logEvent("You don't have enough energy to dig.");
+            standardContinue();
+            return;
+        }
+        player.energy -= energyCost;
+        let message = "You dig into the ground with your shovel. The soil is hard, but you manage to excavate a small pit.";
+        if (Math.random() < 0.3) { // 30% chance to find something
+            const foundItem = ['Geological Scanner', 'Ice Core Sample'][Math.floor(Math.random() * 2)];
+            if (player.backpack) player.backpack.push(foundItem);
+            checkMissionCompletion({ type: 'item', item: foundItem });
+            message += ` You uncover a ${foundItem}!`;
+        } else {
+            message += " Unfortunately, you find nothing of value.";
+        }
+        logEvent(message + ` (-${energyCost} Energy)`);
+        standardContinue();
+    }
+
+    function drillForSamples() {
+        const suit = playerLoadout.suit;
+        const energyCost = 8 + loadoutModifiers.suits[suit].actionEnergy;
+        if (player.energy < energyCost) {
+            logEvent("You don't have enough energy to drill.");
+            standardContinue();
+            return;
+        }
+        player.energy -= energyCost;
+        let message = "You activate the drill and bore into the surface. It hums loudly as it penetrates the material.";
+        if (Math.random() < 0.4) { // 40% chance to find something
+            const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Alien Microbe'][Math.floor(Math.random() * 3)];
+            if (player.backpack) player.backpack.push(foundItem);
+            checkMissionCompletion({ type: 'item', item: foundItem });
+            message += ` The drill hits something! You extract a ${foundItem}.`;
+        } else {
+            message += " The drill completes its cycle, but yields no samples.";
+        }
+        logEvent(message + ` (-${energyCost} Energy)`);
+        standardContinue();
+    }
+
+    function reportFindings() {
+        if (player.backpack) player.backpack.push('Field Report');
+        logEvent("You compile a detailed report of your findings at this location. It could be valuable when submitted back at base.");
+        standardContinue();
     }
 
     function sleep() {

@@ -21,7 +21,7 @@
                     <p>Banked kCals: <span id="banked-kcals"></span></p>
                     <p>Carried kCals: <span id="carried-kcals"></span></p>
                     <p>Energy: <span id="energy"></span></p>
-                    <p>Suit Warmer: <span id="suit-warmer-time">0m</span></p>
+                    <p id="suit-warmer-display">Suit Warmer: <span id="suit-warmer-time">0m</span></p>
                     <p>Time: <span id="time"></span></p>
                     <p>Coordinates: <span id="coordinates"></span></p>
                     <hr>
@@ -49,8 +49,8 @@
 
     <div id="cyclerOverlay" class="hidden">
         <div id="cyclerLog">
-            <h2>Cycler Log</h2>
-            <p>Cycler ID: <span id="cycler-id-log"></span></p>
+            <h2>Expendable Log</h2>
+            <p>Expendable ID: <span id="cycler-id-log"></span></p>
             <p>Cause of Failure: <span id="failure-cause-log"></span></p>
             <p>Failure Code: <span id="failure-code-log"></span></p>
             <p>kCals Banked: <span id="kcals-banked-log"></span></p>
@@ -68,15 +68,15 @@
     </div>
 
     <div id="name-screen">
-        <h1>New Cycler Instance</h1>
-        <input type="text" id="new-character-name-input" placeholder="Enter Cycler ID" maxlength="15">
-        <button id="start-game-btn" class="big-button">Start Game</button>
+        <h1>New Expendable Login</h1>
+        <input type="text" id="new-character-name-input" placeholder="Enter Name" maxlength="15">
+        <button id="start-game-btn" class="store-button">Start Game</button>
     </div>
 
     <div id="setup-screen" class="hidden">
         <h1>Select Loadout</h1>
         <div id="name-selection">
-            <h2>Enter Cycler ID:</h2>
+            <h2>Enter Name:</h2>
             <input type="text" id="character-name-input" placeholder="e.g., SID-849" maxlength="15">
         </div>
         <div class="loadout-container">
