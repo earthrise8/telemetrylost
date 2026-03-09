@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalState = {};
     let playerLoadout = {};
     let currentCoords = { x: 4, y: 5 };
+    let gameOver = false;
     let gameTime = 420;
     let mapState = { scale: 1, x: 0, y: 0, isPanning: false, startX: 0, startY: 0 };
     let storyIndex = 0;
@@ -65,6 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
         consumables: { 'Ration Pack': 0, 'Warmer Unit': 0 },
         crystalCave_crystals: Math.floor(Math.random() * 4) + 2, // 2 to 5 crystals
         dailyMission: null,
+        creeperNestsDiscovered: [],
+        creeperKills: 0,
+        creeperNestsReported: []
     };
 
     const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Unknown": "FC-UNX-000" };
@@ -119,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' },
         'Drill': { type: 'tool', cost: 1500, desc: 'A powerful drill for extracting samples from hard surfaces.' },
         'Shovel': { type: 'tool', cost: 800, desc: 'A sturdy shovel for digging in softer terrain.' },
+        'Creeper Carcass': { type: 'misc', sell: 1200, desc: 'The remains of a defeated creeper nest. Valuable data encoded in its tissues.' },
         'Geological Scanner': { type: 'sample', sell: 200, desc: 'Data on rock composition.' },
         'Ice Core Sample': { type: 'sample', sell: 150, desc: 'A pristine ice core.' },
         'Alien Microbe': { type: 'sample', sell: 500, desc: 'A potentially groundbreaking discovery.' },
@@ -146,7 +151,68 @@ document.addEventListener('DOMContentLoaded', () => {
         boulderPass: [{ text: "A massive boulder blocks the path.", actions: [{ label: "Clear Boulder", func: clearBoulder }] }],
         wasteland: [{ text: "A vast, snowy wasteland stretches in all directions.", actions: [{ label: "Scan Area", func: scanArea }] }]
     };
-    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", coords: {x: 1, y: 8}, trigger: () => globalState.deaths > 0, isComplete: () => globalState.exploredTiles.includes('1,8') }];
+    const missions = [{ id: "findCave", sender: "Mission Control", message: "Anomalous energy readings from (1, 8). Investigate.", coords: {x: 1, y: 8}, trigger: () => true, isComplete: () => globalState.exploredTiles.includes('1,8') }];
+
+    // locations of hidden creeper nests scattered across the survey grid
+    const creeperNests = [
+        {x: 0, y: 0},
+        {x: 9, y: 9},
+        {x: 2, y: 5},
+        {x: 5, y: 2},
+        {x: 7, y: 7},
+        {x: 3, y: 8}
+    ];
+
+    function isCreeperNest(x,y){ return creeperNests.some(c=>c.x===x && c.y===y); }
+
+    function handleCreeperEncounter(coordStr) {
+        const hasSurvey = playerLoadout.suit === 'Survey Gear';
+        const hasSidearm = playerLoadout.tool === 'Kinetic Sidearm';
+        if (!hasSurvey || !hasSidearm) {
+            handleDeath("Unknown");
+            return;
+        }
+
+        logEvent("Alien worm-like creatures surge from a concealed nest. Your sensors scream!");
+        actionButtons.innerHTML = '';
+
+        const shootBtn = document.createElement('button');
+        shootBtn.textContent = "Shoot";
+        shootBtn.onclick = () => {
+            player.kCals += 500;
+            if (!player.backpack) player.backpack = [];
+            player.backpack.push('Creeper Carcass');
+            globalState.creeperKills = (globalState.creeperKills || 0) + 1;
+            saveGlobalState();
+            addChatMessage("Mission Control", "You fire into the nest, tearing the creatures apart and recover a carcass for analysis.");
+            checkAllNests();
+            standardContinue();
+        };
+        actionButtons.appendChild(shootBtn);
+
+        const fleeBtn = document.createElement('button');
+        fleeBtn.textContent = "Flee";
+        fleeBtn.onclick = () => {
+            addChatMessage("Mission Control", "You back away hastily, logging the nest location before it submerges.");
+            checkAllNests();
+            standardContinue();
+        };
+        actionButtons.appendChild(fleeBtn);
+    }
+
+    function checkAllNests() {
+        if (globalState.creeperNestsDiscovered.length >= creeperNests.length) {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        gameOver = true;
+        logEvent("All creeper nests have been located. A transmission crackles through: these creatures exhibit signs of intelligence. Mission terminated.");
+        actionButtons.innerHTML = '';
+        addChatMessage("Mission Control", `Final tally – creepers killed: ${globalState.creeperKills || 0}, kCal banked: ${globalState.bankedkCals}.`);
+    }
+
     const missionTemplates = [
         ...Object.keys(poiMap).filter(p => p !== 'landingZone').map(p => ({ type: 'explore', target: p, reward: 500, penalty: 200, text: `Scout the ${poiMap[p].name} at (${poiMap[p].x}, ${poiMap[p].y}).`})),
         ...Object.keys(itemData).filter(i => itemData[i].type === 'sample').map(i => ({ type: 'collect', target: i, reward: 750, penalty: 350, text: `Acquire a sample of "${i}".`}))
@@ -222,6 +288,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (globalState.consumables === undefined) {
             globalState.consumables = { 'Ration Pack': 0, 'Warmer Unit': 0 };
+        }
+        if (!globalState.creeperNestsDiscovered) {
+            globalState.creeperNestsDiscovered = [];
+        }
+        if (globalState.creeperKills === undefined) {
+            globalState.creeperKills = 0;
+        }
+        if (!globalState.creeperNestsReported) {
+            globalState.creeperNestsReported = [];
         }
         const playerName = localStorage.getItem('playerName');
         if (playerName) {
@@ -574,6 +649,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
                 kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
                 
+                // Add last event text to log
+                const lastEventText = eventText.innerHTML;
+                if (lastEventText) {
+                    const eventLogEl = document.createElement('p');
+                    eventLogEl.textContent = `Last Event: ${lastEventText}`;
+                    cyclerLog.appendChild(eventLogEl);
+                }
+                
                 saveGlobalState();
             }, 500); // Black screen for 0.5s
         }, 1500); // Flicker TELEMETRY LOST for 1.5s
@@ -746,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(openBackpack, 1500);
                     return;
                 }
-                player.suitWarmerTime += 300; // 5 minutes
+                player.suitWarmerTime += 18000; // 5 hours
                 globalState.consumables[itemName]--;
                 logEvent("You activate a Warmer Unit. You feel a comforting warmth spread through your suit.");
                 saveGlobalState();
@@ -766,6 +849,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function moveDirection(direction) {
+        if (gameOver) {
+            logEvent("The mission has concluded. No further movement is possible.");
+            return;
+        }
         let targetX = currentCoords.x;
         let targetY = currentCoords.y;
 
@@ -793,6 +880,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function moveTo(x, y) {
+        if (gameOver) {
+            logEvent("The mission has concluded. Movement disabled.");
+            return;
+        }
         const suit = playerLoadout.suit;
         const moveEnergyCost = 5 + loadoutModifiers.suits[suit].moveEnergy;
         player.energy -= moveEnergyCost;
@@ -800,6 +891,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const newCoordString = `${x},${y}`;
         const isFirstVisit = !globalState.exploredTiles.includes(newCoordString);
         
+        // creeper nest encounter check
+        if (isCreeperNest(x, y)) {
+            const hasSurvey = playerLoadout.suit === 'Survey Gear';
+            const hasSidearm = playerLoadout.tool === 'Kinetic Sidearm';
+            if (!hasSurvey || !hasSidearm) {
+                handleDeath("Unknown");
+                return;
+            } else if (!globalState.creeperNestsDiscovered.includes(newCoordString)) {
+                // Has gear, trigger encounter
+                globalState.creeperNestsDiscovered.push(newCoordString);
+                saveGlobalState();
+                // ensure we update coords/time just like normal move
+                currentCoords = { x, y };
+                updateMap();
+                if (isFirstVisit) {
+                    globalState.exploredTiles.push(newCoordString);
+                    const poiKey = getPoiKeyByCoords(x, y);
+                    if (poiKey === 'crystalCave') {
+                        addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");
+                        globalState.bankedkCals += 1500;
+                    }
+                    saveGlobalState();
+                }
+                handleCreeperEncounter(newCoordString);
+                return;
+            }
+        }
+
         if (isFirstVisit) {
             globalState.exploredTiles.push(newCoordString);
             const poiKey = getPoiKeyByCoords(x, y);
@@ -898,6 +1017,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 globalState.consumables[itemName]++;
             } else if (!globalState.ownedItems.includes(itemName)) {
                 globalState.ownedItems.push(itemName);
+                if (item.type === 'tool') {
+                    if (!player.backpack) player.backpack = [];
+                    player.backpack.push(itemName);
+                }
             }
             saveGlobalState();
             openStore();
@@ -949,7 +1072,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addChatMessage(sender,message){const d=document.createElement('div');d.className='chat-message';d.innerHTML=`<span class="sender">${sender}:</span> <span class="message">"${message}"</span>`;chatLog.appendChild(d);chatLog.scrollTop=chatLog.scrollHeight;}
-    function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger()){addChatMessage(m.sender,m.message);}})}
+    function checkMissions(){missions.forEach(m=>{if(!m.isComplete()&&m.trigger() && !(m.id === "findCave" && globalState.deaths === 0)){addChatMessage(m.sender,m.message);}})}
     function closeStore(){storeOverlay.classList.add('hidden');}
     
     function advanceTime(minutes){
@@ -1123,7 +1246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function reportFindings() {
-        if (player.backpack) player.backpack.push('Field Report');
+        const coordStr = `${currentCoords.x},${currentCoords.y}`;
+        if (globalState.creeperNestsReported.includes(coordStr)) {
+            logEvent("You have already reported findings from this location.");
+            standardContinue();
+            return;
+        }
+        globalState.creeperNestsReported.push(coordStr);
+        saveGlobalState();
+        if (!player.backpack) player.backpack = [];
+        player.backpack.push('Field Report');
         logEvent("You compile a detailed report of your findings at this location. It could be valuable when submitted back at base.");
         standardContinue();
     }

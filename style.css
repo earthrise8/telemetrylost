@@ -206,7 +206,7 @@ body {
 
 #compass-grid {
     display: grid;
-    grid-template-columns: repeat(3, 50px);
+    grid-template-columns: repeat(3, 150px);
     grid-template-rows: repeat(3, 50px);
     gap: 5px;
     margin-bottom: 10px;
