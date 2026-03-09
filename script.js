@@ -65,7 +65,48 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Unknown": "FC-UNX-000" };
-    const poiMap = { 'landingZone': { x: 4, y: 5, name: 'Base' }, 'glacier': { x: 4, y: 4, name: 'Glacier', isCold: true }, 'iceFields': { x: 3, y: 5, name: 'Fields', isCold: true }, 'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' }, 'crevasse': { x: 4, y: 6, name: 'Crevasse' }, 'thermalVents': { x: 3, y: 4, name: 'Vents' }, 'crystalCave': { x: 1, y: 8, name: 'Cave' }, 'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' } };
+    const poiMap = {
+    'landingZone': { x: 4, y: 5, name: 'Base' },
+    'glacier': { x: 4, y: 4, name: 'Glacier', isCold: true },
+    'iceFields': { x: 3, y: 5, name: 'Fields', isCold: true },
+    'rockyOutcrop': { x: 5, y: 5, name: 'Outcrop' },
+    'crevasse': { x: 4, y: 6, name: 'Crevasse' },
+    'thermalVents': { x: 3, y: 4, name: 'Vents' },
+    'crystalCave': { x: 1, y: 8, name: 'Cave' },
+    'boulderPass': { x: 6, y: 5, name: 'Boulder Pass' },
+    'frozenForest': { x: 1, y: 1, name: 'Frozen Forest' },
+    'wreckage': { x: 8, y: 8, name: 'Wreckage' },
+    'researchOutpost': { x: 7, y: 2, name: 'Outpost' },
+    'deepCrater': { x: 2, y: 7, name: 'Crater' },
+    'iceCave1': { x: 0, y: 3, name: 'Ice Cave', isCold: true },
+    'iceCave2': { x: 9, y: 6, name: 'Ice Cave', isCold: true },
+    'geyserField': { x: 5, y: 1, name: 'Geysers' },
+    'magneticField': { x: 8, y: 0, name: 'M-Field' },
+    'frozenRiver': { x: 2, y: 0, name: 'Frozen River', isCold: true },
+    'iceArch': { x: 6, y: 9, name: 'Ice Arch' },
+    'meteorSite': { x: 9, y: 3, name: 'Meteor Site' },
+    'fungalCavern': { x: 0, y: 9, name: 'Fungal Cavern' },
+    'obsidianPlain': { x: 5, y: 8, name: 'Obsidian Plain' },
+    'unstableIce': { x: 1, y: 5, name: 'Unstable Ice' },
+    'abandonedMine': { x: 7, y: 7, name: 'Mine' },
+    'shelter': { x: 3, y: 9, name: 'Shelter' },
+    'commsTower': { x: 9, y: 1, name: 'Comms Tower' },
+    'outcrop2': { x: 0, y: 6, name: 'Outcrop' },
+    'outcrop3': { x: 8, y: 4, name: 'Outcrop' },
+    'iceSpires': { x: 6, y: 3, name: 'Ice Spires', isCold: true },
+    'deepFissure': { x: 3, y: 1, name: 'Fissure' },
+    'hydrothermalVent': { x: 0, y: 0, name: 'Hydro Vent' },
+    'snowyPeak': { x: 9, y: 9, name: 'Snowy Peak', isCold: true },
+    'iceWall': { x: 2, y: 3, name: 'Ice Wall', isCold: true },
+    'frozenLake': { x: 7, y: 5, name: 'Frozen Lake' },
+    'crystalOutcropping': { x: 5, y: 7, name: 'Crystal Outcropping' },
+    'ancientGlacier': { x: 1, y: 3, name: 'Ancient Glacier', isCold: true },
+    'subsurfaceRiver': { x: 4, y: 8, name: 'Subsurface River' },
+    'iceGorge': { x: 8, y: 2, name: 'Ice Gorge', isCold: true },
+    'frozenWaterfall': { x: 6, y: 0, name: 'Frozen Waterfall' },
+    'geothermalPool': { x: 3, y: 7, name: 'Geothermal Pool' },
+    'iceCanyon': { x: 9, y: 7, name: 'Ice Canyon', isCold: true }
+};
     const itemData = {
         'Survey Gear': { type: 'suit', cost: 0, desc: 'Reduced travel distance and energy consumption for movement.' },
         'Thermal Gear': { type: 'suit', cost: 800, desc: 'Allows for further exploration with slightly increased energy consumption.' },
@@ -83,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadoutModifiers = { 
         suits: { 
-            'Survey Gear': { health: 100, maxDistance: 3, moveEnergy: -2, actionEnergy: 0 }, 
+            'Survey Gear': { health: 100, maxDistance: 99, moveEnergy: -2, actionEnergy: 0 }, 
             'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2, providesWarmth: true }, 
             'Armoured Gear': { health: 150, maxDistance: 4, moveEnergy: 5, actionEnergy: -5 } 
         }, 
@@ -424,32 +465,57 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function handleDeath(cause) {
         mainWrapper.classList.add('hidden');
-        cyclerOverlay.classList.remove('hidden');
-        globalState.deaths++;
-        const bankedAmount = player.kCals;
-        globalState.bankedkCals += bankedAmount;
-        
-        cyclerIdLogEl.textContent = player.name;
-        failureCauseLogEl.textContent = cause;
-        failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
-        kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
-        
-        saveGlobalState();
+        const telemetryOverlay = document.getElementById('telemetry-lost-overlay');
+        telemetryOverlay.classList.remove('hidden');
+        document.body.classList.add('flicker');
+    
+        setTimeout(() => {
+            document.body.classList.remove('flicker');
+            telemetryOverlay.innerHTML = ''; // Makes the screen black
+            setTimeout(() => {
+                telemetryOverlay.classList.add('hidden');
+                cyclerOverlay.classList.remove('hidden');
+    
+                globalState.deaths++;
+                const bankedAmount = player.kCals;
+                globalState.bankedkCals += bankedAmount;
+                
+                cyclerIdLogEl.textContent = player.name;
+                failureCauseLogEl.textContent = cause;
+                failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
+                kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
+                
+                saveGlobalState();
+            }, 500); // Black screen for 0.5s
+        }, 1500); // Flicker TELEMETRY LOST for 1.5s
     }
 
     // Helper functions
     function updateStatsDisplay(){
         if(!player||!globalState)return;
-        characterNameEl.textContent=player.name || '';
-        healthEl.textContent=player.health || 0;
-        bankedKcalsEl.textContent = globalState.bankedkCals || 0;
-        carriedKcalsEl.textContent = player.kCals || 0;
-        energyEl.textContent = player.energy || 0;
-        suitWarmerTimeEl.textContent = `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`;
-        timeEl.textContent = `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`;
-        coordinatesEl.textContent = `${currentCoords.x}, ${currentCoords.y}`;
-        playerSuitEl.textContent=playerLoadout.suit || 'N/A';
-        playerToolEl.textContent=playerLoadout.tool || 'N/A';
+    
+        const flashOnChange = (el, value) => {
+            const oldValue = el.textContent;
+            if (oldValue !== value.toString()) {
+                el.textContent = value;
+                if (oldValue !== '') { // Don't flash on initial load
+                    el.classList.add('value-flash');
+                    setTimeout(() => el.classList.remove('value-flash'), 500);
+                }
+            }
+        };
+    
+        flashOnChange(characterNameEl, player.name || '');
+        flashOnChange(healthEl, player.health || 0);
+        flashOnChange(bankedKcalsEl, globalState.bankedkCals || 0);
+        flashOnChange(carriedKcalsEl, player.kCals || 0);
+        flashOnChange(energyEl, player.energy || 0);
+        flashOnChange(suitWarmerTimeEl, `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`);
+        flashOnChange(timeEl, `Day-${String(Math.floor(gameTime/1440)).padStart(3,'0')} ${String(Math.floor((gameTime % 1440)/60)).padStart(2,'0')}:${String(gameTime%60).padStart(2,'0')}`);
+        flashOnChange(coordinatesEl, `${currentCoords.x}, ${currentCoords.y}`);
+        flashOnChange(playerSuitEl, playerLoadout.suit || 'N/A');
+        flashOnChange(playerToolEl, playerLoadout.tool || 'N/A');
+    
         updateBackpackDisplay();
         if(player.health<=0){handleDeath("Vital Signs Lost");}
         if (player.energy <= 0) { handleDeath("Exhaustion"); }
@@ -592,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(openBackpack, 1500); 
             }
         }
+        updateStatsDisplay();
     }
 
     function standardContinue(){
@@ -612,14 +679,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (direction === 'east') targetX++;
         if (direction === 'west') targetX--;
 
-        const distance = Math.abs(targetX - 4) + Math.abs(targetY - 5);
-        const suit = playerLoadout.suit;
-        if (distance > loadoutModifiers.suits[suit].maxDistance) {
-            logEvent("Your suit doesn\'t have the range to go that far.");
-            addChatMessage("Mission Control", "Exceeding suit\'s operational range is not advised. Return to a closer distance to base.");
-            standardContinue();
-            return;
-        }
+        // const distance = Math.abs(targetX - 4) + Math.abs(targetY - 5);
+        // const suit = playerLoadout.suit;
+        // if (distance > loadoutModifiers.suits[suit].maxDistance) {
+        //     logEvent("Your suit doesn\'t have the range to go that far.");
+        //     addChatMessage("Mission Control", "Exceeding suit\'s operational range is not advised. Return to a closer distance to base.");
+        //     standardContinue();
+        //     return;
+        // }
 
         if (targetX < 0 || targetX > 9 || targetY < 0 || targetY > 9) {
             logEvent("You are at the edge of the designated survey area.");

@@ -25,7 +25,7 @@ body {
 }
 #dev-reset-btn:hover { background-color: #C00; }
 
-#main-wrapper { display: flex; width: 95%; max-width: 1200px; border: 2px solid #0F0; }
+#main-wrapper { display: flex; width: 95%; max-width: 1200px; border: 2px solid #0F0; height: 90vh; }
 .hidden { display: none !important; }
 
 #game-container { padding: 20px; width: 70%; border-right: 2px solid #0F0; display: flex; flex-direction: column; }
@@ -63,9 +63,9 @@ body {
 .map-cell-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 
 #action-buttons { margin-top: auto; }
-#chat-container { width: 30%; padding: 15px; display: flex; flex-direction: column; }
-#chat-container h2 { margin-top: 0; text-align: center; border-bottom: 1px dashed #0F0; padding-bottom: 10px; }
-#chat-log { flex-grow: 1; overflow-y: auto; font-size: 0.9em; }
+#chat-container { width: 30%; padding: 20px 15px 20px 20px; display: flex; flex-direction: column; }
+#chat-container h2 { margin-top: 0; text-align: center; padding-bottom: 10px; }
+#chat-log { flex-grow: 1; overflow-y: scroll; font-size: 0.9em; border: 1px dashed #0F0; padding: 10px; }
 .chat-message { margin-bottom: 15px; }
 .chat-message .sender { font-weight: bold; color: #0FF; }
 .chat-message .message { color: #0F0; }
@@ -140,4 +140,40 @@ body {
 #backpack-items li {
     margin-bottom: 5px;
     color: #0CF;
+}
+
+#telemetry-lost-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    color: #F00;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 110;
+    font-size: 3em;
+}
+
+@keyframes flicker-effect {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; text-shadow: 0 0 10px #F00; }
+    100% { opacity: 1; }
+}
+
+.flicker {
+    animation: flicker-effect 0.1s infinite;
+}
+
+@keyframes value-flash-animation {
+    0% { color: #0F0; text-shadow: none; }
+    50% { color: #FF0; text-shadow: 0 0 10px #FF0; }
+    100% { color: #0F0; text-shadow: none; }
+}
+
+.value-flash {
+    animation: value-flash-animation 0.5s ease-out;
 }
