@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const startGameBtn = document.getElementById('start-game-btn');
 
     // Game State
-    let player = {};
+    let expendable = {};
     let globalState = {};
     let playerLoadout = {};
     let currentCoords = { x: 4, y: 5 };
@@ -120,10 +120,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'Thermal Gear': { type: 'suit', cost: 800, desc: 'Allows for further exploration with slightly increased energy consumption.' },
         'Armoured Gear': { type: 'suit', cost: 800, desc: 'Maximum protection and reduced energy for manual labor, but high energy consumption for movement.' },
         'Thermal Cutter': { type: 'tool', cost: 0, desc: 'Standard issue tool for obstacles.' },
-        'Kinetic Sidearm': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' },
+        'Burner': { type: 'tool', cost: 1200, desc: 'A reliable projectile weapon.' },
         'Sonic Deterrent': { type: 'tool', cost: 1000, desc: 'Deters aggressive fauna.' },
-        'Drill': { type: 'tool', cost: 1500, desc: 'A powerful drill for extracting samples from hard surfaces.' },
-        'Shovel': { type: 'tool', cost: 800, desc: 'A sturdy shovel for digging in softer terrain.' },
+        'Thermal Probe': { type: 'tool', cost: 1500, desc: 'A powerful drill for extracting samples from hard surfaces.' },
+        'Subsurface Bore': { type: 'tool', cost: 800, desc: 'A sturdy shovel for digging in softer terrain.' },
         'Creeper Carcass': { type: 'misc', sell: 1200, desc: 'The remains of a defeated creeper nest. Valuable data encoded in its tissues.' },
         'Geological Scanner': { type: 'sample', sell: 200, desc: 'Data on rock composition.' },
         'Ice Core Sample': { type: 'sample', sell: 150, desc: 'A pristine ice core.' },
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'Thermal Gear': { health: 120, maxDistance: 5, moveEnergy: 2, actionEnergy: 2, providesWarmth: true }, 
             'Armoured Gear': { health: 150, maxDistance: 4, moveEnergy: 5, actionEnergy: -5 } 
         }, 
-        tools: { 'Thermal Cutter': {}, 'Kinetic Sidearm': {}, 'Sonic Deterrent': {}, 'Drill': {}, 'Shovel': {} } 
+        tools: { 'Thermal Cutter': {}, 'Burner': {}, 'Sonic Deterrent': {}, 'Thermal Probe': {}, 'Subsurface Bore': {} } 
     };
     const events = {
         landingZone: [{ text: "Base is quiet. All samples and kCal reserves have been banked.", actions: [{ label: "Requisition Gear", func: openStore }, { label: "Sleep", func: sleep }] }],
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleCreeperEncounter(coordStr) {
         const hasSurvey = playerLoadout.suit === 'Survey Gear';
-        const hasSidearm = playerLoadout.tool === 'Kinetic Sidearm';
+        const hasSidearm = playerLoadout.tool === 'Burner';
         if (!hasSurvey || !hasSidearm) {
             handleDeath("Unknown");
             return;
@@ -180,9 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const shootBtn = document.createElement('button');
         shootBtn.textContent = "Shoot";
         shootBtn.onclick = () => {
-            player.kCals += 500;
-            if (!player.backpack) player.backpack = [];
-            player.backpack.push('Creeper Carcass');
+            expendable.kCals += 500;
+            if (!expendable.backpack) expendable.backpack = [];
+            expendable.backpack.push('Creeper Carcass');
             globalState.creeperKills = (globalState.creeperKills || 0) + 1;
             saveGlobalState();
             addChatMessage("Mission Control", "You fire into the nest, tearing the creatures apart and recover a carcass for analysis.");
@@ -247,11 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function startBackstory() {
         const playerName = newCharacterNameInput.value;
         if (!playerName) {
-            alert("Please enter a name.");
+            alert("Please enter a designation.");
             return;
         }
         localStorage.setItem('playerName', playerName);
-        player.name = playerName;
+        expendable.name = playerName;
         nameScreen.classList.add('hidden');
         mainWrapper.classList.remove('hidden');
         ocularInterface.classList.remove('hidden');
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const playerName = localStorage.getItem('playerName');
         if (playerName) {
-            player.name = playerName;
+            expendable.name = playerName;
         }
     }
 
@@ -318,14 +318,14 @@ document.addEventListener('DOMContentLoaded', () => {
         mainWrapper.classList.add('hidden');
         nameScreen.classList.add('hidden');
         setupScreen.classList.remove('hidden');
-        characterNameInput.value = player.name || "";
+        characterNameInput.value = expendable.name || "";
 
         playerLoadout = {
             suit: null,
             tool: null,
         };
 
-        suitSelectionContainer.innerHTML = '<h2>Choose a Suit</h2>';
+        suitSelectionContainer.innerHTML = '<h2>Choose an Exo-Suit</h2>';
         toolSelectionContainer.innerHTML = '<h2>Choose a Tool</h2>';
 
         Object.entries(itemData).forEach(([itemName, itemDef]) => {
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function startExpedition() {
         if (!playerLoadout.suit || !playerLoadout.tool) {
-            alert("Please select a suit and a tool.");
+            alert("Please select an exo-suit and a tool.");
             return;
         }
 
@@ -419,8 +419,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mainWrapper.classList.remove('hidden');
         ocularInterface.classList.remove('hidden');
         
-        player = { 
-            name: player.name || characterNameInput.value,
+        expendable = { 
+            name: expendable.name || characterNameInput.value,
             health: loadoutModifiers.suits[playerLoadout.suit].health, 
             kCals: 0, 
             energy: 100,
@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCoords = { x: 4, y: 5 };
 
         chatLog.innerHTML = '';
-        addChatMessage("Mission Control", `Welcome, Cycler ${player.name}. Explore, gather data, stay alive.`);
+        addChatMessage("Mission Control", `Welcome, Cycler ${expendable.name}-${globalState.deaths}. Explore, gather data, stay alive.`);
         assignDailyMission();
         checkMissions();
         updateMap();
@@ -459,8 +459,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let samplesValue = 0;
             const remainingBackpack = [];
 
-            if (player.backpack) {
-                player.backpack.forEach(item => {
+            if (expendable.backpack) {
+                expendable.backpack.forEach(item => {
                     if (itemData[item] && itemData[item].sell) {
                         samplesValue += itemData[item].sell;
                     } else {
@@ -469,10 +469,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            const bankedKCal = player.kCals;
+            const bankedKCal = expendable.kCals;
             globalState.bankedkCals += bankedKCal + samplesValue;
-            player.kCals = 0;
-            player.backpack = remainingBackpack; 
+            expendable.kCals = 0;
+            expendable.backpack = remainingBackpack; 
 
             saveGlobalState();
 
@@ -568,18 +568,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
         
-        // Add dig actions if player has tools
+        // Add dig actions if expendable has tools
         if (poiKey && poiKey !== 'landingZone') {
-            if (globalState.ownedItems.includes('Shovel')) {
+            if (globalState.ownedItems.includes('Subsurface Bore')) {
                 const digButton = document.createElement('button');
-                digButton.textContent = "Dig with Shovel";
+                digButton.textContent = "Use Subsurface Bore";
                 digButton.onclick = digWithShovel;
                 digButton.className = 'action-btn';
                 actionSection.appendChild(digButton);
             }
-            if (globalState.ownedItems.includes('Drill')) {
+            if (globalState.ownedItems.includes('Thermal Probe')) {
                 const drillButton = document.createElement('button');
-                drillButton.textContent = "Drill for Samples";
+                drillButton.textContent = "Use Thermal Probe";
                 drillButton.onclick = drillForSamples;
                 drillButton.className = 'action-btn';
                 actionSection.appendChild(drillButton);
@@ -649,10 +649,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 cyclerOverlay.classList.remove('hidden');
     
                 globalState.deaths++;
-                const bankedAmount = player.kCals;
+                const bankedAmount = expendable.kCals;
                 globalState.bankedkCals += bankedAmount;
                 
-                cyclerIdLogEl.textContent = player.name;
+                cyclerIdLogEl.textContent = expendable.name + '-' + globalState.deaths;
                 failureCauseLogEl.textContent = cause;
                 failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
                 kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
@@ -672,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper functions
     function updateStatsDisplay(){
-        if(!player||!globalState)return;
+        if(!expendable||!globalState)return;
     
         const flashOnChange = (el, value) => {
             const oldValue = el.textContent;
@@ -685,15 +685,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     
-        flashOnChange(characterNameEl, player.name || '');
-        flashOnChange(healthEl, player.health || 0);
+        flashOnChange(characterNameEl, expendable.name + '-' + globalState.deaths);
+        flashOnChange(healthEl, expendable.health || 0);
         flashOnChange(bankedKcalsEl, globalState.bankedkCals || 0);
-        flashOnChange(carriedKcalsEl, player.kCals || 0);
-        flashOnChange(energyEl, player.energy || 0);
+        flashOnChange(carriedKcalsEl, expendable.kCals || 0);
+        flashOnChange(energyEl, expendable.energy || 0);
         // Only show suit warmer when active
-        if (player.suitWarmerTime > 0) {
+        if (expendable.suitWarmerTime > 0) {
             suitWarmerDisplay.classList.remove('hidden');
-            flashOnChange(suitWarmerTimeEl, `${Math.floor(player.suitWarmerTime / 60)}m ${player.suitWarmerTime % 60}s`);
+            flashOnChange(suitWarmerTimeEl, `${Math.floor(expendable.suitWarmerTime / 60)}m ${expendable.suitWarmerTime % 60}s`);
         } else {
             suitWarmerDisplay.classList.add('hidden');
         }
@@ -703,9 +703,9 @@ document.addEventListener('DOMContentLoaded', () => {
         flashOnChange(playerToolEl, playerLoadout.tool || 'N/A');
     
         updateBackpackDisplay();
-        if(player.health<=0){handleDeath("Vital Signs Lost");}
-        if (player.energy <= 0) { handleDeath("Exhaustion"); }
-        if (player.energy < 5) {
+        if(expendable.health<=0){handleDeath("Vital Signs Lost");}
+        if (expendable.energy <= 0) { handleDeath("Exhaustion"); }
+        if (expendable.energy < 5) {
             addChatMessage("Mission Control", "Energy levels critical. Return to base for recovery.");
         }
     }
@@ -715,8 +715,8 @@ document.addEventListener('DOMContentLoaded', () => {
         backpackEl.innerHTML = '';
         
         const items = {};
-        if (player.backpack && player.backpack.length > 0) {
-            player.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
+        if (expendable.backpack && expendable.backpack.length > 0) {
+            expendable.backpack.forEach(item => { items[item] = (items[item] || 0) + 1; });
         }
 
         Object.entries(globalState.consumables).forEach(([name, count]) => {
@@ -740,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
         eventText.innerHTML = '<h2>Inventory</h2>';
         actionButtons.innerHTML = '';
     
-        const backpackItems = player.backpack || [];
+        const backpackItems = expendable.backpack || [];
         const consumableItems = Object.entries(globalState.consumables).filter(([, count]) => count > 0).map(([name]) => name);
         const inventoryItems = new Set(backpackItems.concat(consumableItems));
     
@@ -753,7 +753,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (itemDef) {
                     const li = document.createElement('li');
     
-                    const countInBackpack = (player.backpack || []).filter(i => i === itemName).length;
+                    const countInBackpack = (expendable.backpack || []).filter(i => i === itemName).length;
                     const countOfConsumable = globalState.consumables[itemName] || 0;
 
                     let displayText = itemName;
@@ -789,12 +789,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (itemDef.type === 'suit') {
                                     const oldSuit = playerLoadout.suit;
                                     const oldSuitMaxHealth = loadoutModifiers.suits[oldSuit].health;
-                                    const healthPercentage = player.health / oldSuitMaxHealth;
+                                    const healthPercentage = expendable.health / oldSuitMaxHealth;
 
                                     playerLoadout.suit = itemName;
 
                                     const newSuitMaxHealth = loadoutModifiers.suits[itemName].health;
-                                    player.health = Math.round(newSuitMaxHealth * healthPercentage);
+                                    expendable.health = Math.round(newSuitMaxHealth * healthPercentage);
                                 } else if (itemDef.type === 'tool') {
                                     playerLoadout.tool = itemName;
                                 }
@@ -826,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function useConsumable(itemName) {
         if (globalState.consumables[itemName] > 0) {
             if (itemName === 'Ration Pack') {
-                player.energy = Math.min(100, player.energy + 50);
+                expendable.energy = Math.min(100, expendable.energy + 50);
                 globalState.consumables[itemName]--;
                 logEvent("You consume a Ration Pack, restoring 50 energy.");
                 saveGlobalState();
@@ -837,7 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(openBackpack, 1500);
                     return;
                 }
-                player.suitWarmerTime += 18000; // 5 hours
+                expendable.suitWarmerTime += 18000; // 5 hours
                 globalState.consumables[itemName]--;
                 logEvent("You activate a Warmer Unit. You feel a comforting warmth spread through your suit.");
                 saveGlobalState();
@@ -894,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const suit = playerLoadout.suit;
         const moveEnergyCost = 5 + loadoutModifiers.suits[suit].moveEnergy;
-        player.energy -= moveEnergyCost;
+        expendable.energy -= moveEnergyCost;
 
         const newCoordString = `${x},${y}`;
         const isFirstVisit = !globalState.exploredTiles.includes(newCoordString);
@@ -902,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // creeper nest encounter check
         if (isCreeperNest(x, y)) {
             const hasSurvey = playerLoadout.suit === 'Survey Gear';
-            const hasSidearm = playerLoadout.tool === 'Kinetic Sidearm';
+            const hasSidearm = playerLoadout.tool === 'Burner';
             if (!hasSurvey || !hasSidearm) {
                 handleDeath("Unknown");
                 return;
@@ -961,7 +961,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tools = Object.entries(itemData).filter(([name, item]) => item.type === 'tool' && item.cost > 0);
         const consumables = Object.entries(itemData).filter(([name, item]) => item.type === 'consumable');
 
-        let suitHtml = '<tr class="category-header"><th colspan="3">Suits</th></tr>';
+        let suitHtml = '<tr class="category-header"><th colspan="3">Exo-Suits</th></tr>';
         suits.forEach(([name, item]) => {
             const btn = globalState.ownedItems.includes(name)
                 ? `<span>Owned</span>`
@@ -1026,8 +1026,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (!globalState.ownedItems.includes(itemName)) {
                 globalState.ownedItems.push(itemName);
                 if (item.type === 'tool') {
-                    if (!player.backpack) player.backpack = [];
-                    player.backpack.push(itemName);
+                    if (!expendable.backpack) expendable.backpack = [];
+                    expendable.backpack.push(itemName);
                 }
             }
             saveGlobalState();
@@ -1134,15 +1134,15 @@ document.addEventListener('DOMContentLoaded', () => {
             assignDailyMission();
         }
 
-        if (player.suitWarmerTime > 0) {
-            player.suitWarmerTime = Math.max(0, player.suitWarmerTime - (minutes * 60)); // Time is in seconds
-            if(player.suitWarmerTime === 0) {
+        if (expendable.suitWarmerTime > 0) {
+            expendable.suitWarmerTime = Math.max(0, expendable.suitWarmerTime - (minutes * 60)); // Time is in seconds
+            if(expendable.suitWarmerTime === 0) {
                 addChatMessage("Mission Control", "Suit warmer depleted. Exposure to extreme cold is now a critical threat.");
             }
         }
 
         // kCal consumption over time seems to be removed in favor of energy
-        // player.kCals-=Math.floor(minutes/10);
+        // expendable.kCals-=Math.floor(minutes/10);
         updateStatsDisplay();
     }
 
@@ -1151,13 +1151,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const suit = playerLoadout.suit;
         const providesWarmth = loadoutModifiers.suits[suit].providesWarmth || false;
 
-        if (poiKey && poiMap[poiKey].isCold && player.suitWarmerTime <= 0 && !providesWarmth) {
+        if (poiKey && poiMap[poiKey].isCold && expendable.suitWarmerTime <= 0 && !providesWarmth) {
              if (!coldInterval) {
                 addChatMessage("Mission Control", "Warning: Extreme cold detected. Suit integrity failing. Activate a warmer unit or equip Thermal Gear.");
                 coldInterval = setInterval(() => {
-                    player.health -= 5;
+                    expendable.health -= 5;
                     updateStatsDisplay();
-                    if (player.health <= 0) {
+                    if (expendable.health <= 0) {
                         handleDeath('Hypothermia');
                         clearInterval(coldInterval);
                         coldInterval = null;
@@ -1177,10 +1177,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const suit = playerLoadout.suit;
         const energyCost = 2 + loadoutModifiers.suits[suit].actionEnergy;
         let message = "Scanning... nothing of interest in the immediate vicinity. The wind howls.";
-        player.energy -= energyCost;
+        expendable.energy -= energyCost;
         if (Math.random() < 0.2) { // 20% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Strange Artifact', 'Damaged Logbook'][Math.floor(Math.random() * 4)];
-            if(player.backpack) player.backpack.push(foundItem);
+            if(expendable.backpack) expendable.backpack.push(foundItem);
             checkMissionCompletion({ type: 'item', item: foundItem });
             message = `Scanning... your device chirps. You\'ve found a ${foundItem}.`;
         }
@@ -1195,7 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
         if (playerLoadout.tool !== requiredTool) {
             if (globalState.ownedItems.includes(requiredTool)) {
-                // Player owns the tool, but it's not equipped.
+                // Expendable owns the tool, but it's not equipped.
                 logEvent(`You need the ${requiredTool} to harvest these crystals. Would you like to equip it?`);
                 actionButtons.innerHTML = '';
     
@@ -1214,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButtons.appendChild(backButton);
     
             } else {
-                // Player does not own the tool.
+                // Expendable does not own the tool.
                 logEvent("You try to harvest the material, but it is incredibly tough. Perhaps a Thermal Cutter would be able to cut this.");
                 standardContinue();
             }
@@ -1228,11 +1228,11 @@ document.addEventListener('DOMContentLoaded', () => {
             saveGlobalState();
     
             let message = "You carefully extract a crystal. It pulses with a soft light.";
-            player.kCals += 300; // Directly add to carried kCals
-            player.energy -= energyCost;
+            expendable.kCals += 300; // Directly add to carried kCals
+            expendable.energy -= energyCost;
     
             if (Math.random() < 0.5) { // 50% chance to get a special sample
-                if (player.backpack) player.backpack.push('Alien Microbe');
+                if (expendable.backpack) expendable.backpack.push('Alien Microbe');
                 checkMissionCompletion({ type: 'item', item: 'Alien Microbe' });
                 message += " You manage to secure a sample containing a strange, resilient microbe.";
             }
@@ -1254,16 +1254,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function digWithShovel() {
         const suit = playerLoadout.suit;
         const energyCost = 5 + loadoutModifiers.suits[suit].actionEnergy;
-        if (player.energy < energyCost) {
+        if (expendable.energy < energyCost) {
             logEvent("You don't have enough energy to dig.");
             standardContinue();
             return;
         }
-        player.energy -= energyCost;
-        let message = "You dig into the ground with your shovel. The soil is hard, but you manage to excavate a small pit.";
+        expendable.energy -= energyCost;
+        let message = "You dig into the ground with your Subsurface Bore. The soil is hard, but you manage to excavate a small pit.";
         if (Math.random() < 0.3) { // 30% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample'][Math.floor(Math.random() * 2)];
-            if (player.backpack) player.backpack.push(foundItem);
+            if (expendable.backpack) expendable.backpack.push(foundItem);
             checkMissionCompletion({ type: 'item', item: foundItem });
             message += ` You uncover a ${foundItem}!`;
         } else {
@@ -1276,20 +1276,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function drillForSamples() {
         const suit = playerLoadout.suit;
         const energyCost = 8 + loadoutModifiers.suits[suit].actionEnergy;
-        if (player.energy < energyCost) {
+        if (expendable.energy < energyCost) {
             logEvent("You don't have enough energy to drill.");
             standardContinue();
             return;
         }
-        player.energy -= energyCost;
-        let message = "You activate the drill and bore into the surface. It hums loudly as it penetrates the material.";
+        expendable.energy -= energyCost;
+        let message = "You activate the Thermal Probe and bore into the surface. It hums loudly as it penetrates the material.";
         if (Math.random() < 0.4) { // 40% chance to find something
             const foundItem = ['Geological Scanner', 'Ice Core Sample', 'Alien Microbe'][Math.floor(Math.random() * 3)];
-            if (player.backpack) player.backpack.push(foundItem);
+            if (expendable.backpack) expendable.backpack.push(foundItem);
             checkMissionCompletion({ type: 'item', item: foundItem });
             message += ` The drill hits something! You extract a ${foundItem}.`;
         } else {
-            message += " The drill completes its cycle, but yields no samples.";
+            message += " The Thermal Probe completes its cycle, but yields no samples.";
         }
         logEvent(message + ` (-${energyCost} Energy)`);
         standardContinue();
@@ -1304,8 +1304,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         globalState.creeperNestsReported.push(coordStr);
         saveGlobalState();
-        if (!player.backpack) player.backpack = [];
-        player.backpack.push('Field Report');
+        if (!expendable.backpack) expendable.backpack = [];
+        expendable.backpack.push('Field Report');
         logEvent("You compile a detailed report of your findings at this location. It could be valuable when submitted back at base.");
         standardContinue();
     }
@@ -1313,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function sleep() {
         const sleepHours = Math.floor(Math.random() * (10 - 3 + 1)) + 3;
         const energyGained = sleepHours * 10;
-        player.energy = Math.min(100, player.energy + energyGained);
+        expendable.energy = Math.min(100, expendable.energy + energyGained);
         advanceTime(sleepHours * 60);
         logEvent(`You sleep for ${sleepHours} hours and recover ${energyGained} energy. You feel rested.`);
         standardContinue();
@@ -1326,7 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
         if (playerLoadout.tool !== requiredTool) {
             if (globalState.ownedItems.includes(requiredTool)) {
-                // Player owns the tool, but it's not equipped.
+                // Expendable owns the tool, but it's not equipped.
                 logEvent(`You need the ${requiredTool} to clear this boulder. Would you like to equip it?`);
                 actionButtons.innerHTML = '';
     
@@ -1345,7 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButtons.appendChild(backButton);
     
             } else {
-                // Player does not own the tool.
+                // Expendable does not own the tool.
                 logEvent("You try to clear the boulder, but it is too large and dense. Perhaps a Thermal Cutter could break it down.");
                 standardContinue();
             }
@@ -1353,8 +1353,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     
     
-        if (player.energy > energyCost) {
-            player.energy -= energyCost;
+        if (expendable.energy > energyCost) {
+            expendable.energy -= energyCost;
             logEvent(`You use the Thermal Cutter and spend a significant amount of energy to clear the boulder. (-${energyCost} Energy)`);
             events.boulderPass = [{ text: "The path you cleared previously.", actions: [] }];
             standardContinue();

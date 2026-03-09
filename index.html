@@ -16,16 +16,16 @@
             </div>
             <div id="info-panel">
                 <div id="stats-display">
-                    <p>Name: <span id="character-name"></span></p>
-                    <p>Health: <span id="health"></span></p>
+                    <p>Designation: <span id="character-name"></span></p>
+                    <p>Integrity: <span id="health"></span></p>
                     <p>Banked kCals: <span id="banked-kcals"></span></p>
                     <p>Carried kCals: <span id="carried-kcals"></span></p>
                     <p>Energy: <span id="energy"></span></p>
                     <p id="suit-warmer-display">Suit Warmer: <span id="suit-warmer-time">0m</span></p>
-                    <p>Time: <span id="time"></span></p>
+                    <p>Chronometer: <span id="time"></span></p>
                     <p>Coordinates: <span id="coordinates"></span></p>
                     <hr>
-                    <p>Suit: <span id="player-suit"></span></p>
+                    <p>Exo-Suit: <span id="player-suit"></span></p>
                     <p>Tool: <span id="player-tool"></span></p>
                 </div>
                 <div id="map-container">
@@ -55,7 +55,7 @@
             <p>Failure Code: <span id="failure-code-log"></span></p>
             <p>kCals Banked: <span id="kcals-banked-log"></span></p>
         </div>
-        <button id="cycleBtn">Continue</button>
+        <button id="cycleBtn">Reprint</button>
     </div>
 
     <div id="store-overlay" class="hidden">
@@ -69,19 +69,19 @@
 
     <div id="name-screen">
         <h1>New Expendable Login</h1>
-        <input type="text" id="new-character-name-input" placeholder="Enter Name" maxlength="15">
-        <button id="start-game-btn" class="store-button">Start Game</button>
+        <input type="text" id="new-character-name-input" placeholder="Enter Designation" maxlength="15">
+        <button id="start-game-btn" class="store-button">Begin Expedition</button>
     </div>
 
     <div id="setup-screen" class="hidden">
         <h1>Select Loadout</h1>
         <div id="name-selection">
-            <h2>Enter Name:</h2>
+            <h2>Enter Designation:</h2>
             <input type="text" id="character-name-input" placeholder="e.g., SID-849" maxlength="15">
         </div>
         <div class="loadout-container">
             <div id="suit-selection">
-                <h2>Choose a Suit</h2>
+                <h2>Choose an Exo-Suit</h2>
             </div>
             <div id="tool-selection">
                 <h2>Choose a Tool</h2>
