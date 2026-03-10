@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "We're detecting a distinct lack of life from your suit. Try to keep it beating this time."
         ],
         "Exhaustion": [
-            "Running out of energy is a rookie mistake. We expect better.",
+            "Running out of energy is a rookie mistake. Do better.",
             "Your energy levels went to zero. Did you try turning it off and on again?"
         ],
         "Hypothermia": [
