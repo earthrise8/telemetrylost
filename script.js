@@ -1275,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function drillForSamples() {
         const suit = playerLoadout.suit;
-        const energyCost = 8 + loadoutModifiers.suits[suit].actionEnergy;
+        const energyCost = 10 + loadoutModifiers.suits[suit].actionEnergy;
         if (expendable.energy < energyCost) {
             logEvent("You don\'t have enough energy to drill.");
             standardContinue();
@@ -1297,6 +1297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function reportFindings() {
         const coordStr = `${currentCoords.x},${currentCoords.y}`;
+        const energyCost = 4 + loadoutModifiers.suits[suit].actionEnergy;
         if (globalState.creeperNestsReported.includes(coordStr)) {
             logEvent("You have already reported findings from this location.");
             standardContinue();
@@ -1307,6 +1308,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!expendable.backpack) expendable.backpack = [];
         expendable.backpack.push('Field Report');
         logEvent("You compile a detailed report of your findings at this location. It could be valuable when submitted back at base.");
+        logEvent(message + ` (-${energyCost} Energy)`);
         standardContinue();
     }
 
