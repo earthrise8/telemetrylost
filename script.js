@@ -1069,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     label.textContent = '?';
                 }
 
-                if (activeMission && activeMission.coords && x === activeMission.coords.x && y === activeMission.coords.y) {
+               if (activeMission && activeMission.coords && x === activeMission.coords.x && y === activeMission.coords.y) {
                     cell.classList.add('mission-objective');
                 }
                 
