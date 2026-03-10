@@ -70,10 +70,38 @@ document.addEventListener('DOMContentLoaded', () => {
         dailyMission: null,
         creeperNestsDiscovered: [],
         creeperKills: 0,
-        creeperNestsReported: []
+        creeperNestsReported: [],
+        lastDeathCause: null
     };
 
-    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Unknown": "FC-UNX-000" };
+    const failureCodes = { "Starvation": "FC-STV-001", "Vital Signs Lost": "FC-VSL-002", "Exhaustion": "FC-EXH-004", "Hypothermia": "FC-HYP-003", "Fell": "FC-FLL-005", "Unknown": "FC-UNX-000" };
+    const deathMessages = {
+        "Starvation": [
+            "Note to self: expendables need to eat. Try to remember that this time.",
+            "Your kCal count reached a critical new low: zero. Don't do that again."
+        ],
+        "Vital Signs Lost": [
+            "It appears you've discovered a new way to lose vital signs. Congratulations?",
+            "We're detecting a distinct lack of life from your suit. Try to keep it beating this time."
+        ],
+        "Exhaustion": [
+            "Running out of energy is a rookie mistake. We expect better.",
+            "Your energy levels went to zero. Did you try turning it off and on again?"
+        ],
+        "Hypothermia": [
+            "Pro-tip: it's cold in space. The 'thermal' in 'thermal gear' is not just a suggestion.",
+            "You froze. Again. We're starting to think you're doing this on purpose."
+        ],
+        "Fell": [
+            "Gravity is a harsh mistress. And you, expendable, were a clumsy suitor.",
+            "Next time, watch your step. Chasms are deeper than they look."
+        ],
+        "Unknown": [
+            "You died. We don't know how. Try not to make a habit of it.",
+            "Well, that was unexpected. And expensive. Let's avoid a repeat."
+        ]
+    };
+
     const poiMap = {
     'landingZone': { x: 0, y: 0, name: 'Base' },
     'glacier': { x: 0, y: -1, name: 'Glacier', isCold: true },
@@ -166,6 +194,16 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     function isCreeperNest(x,y){ return creeperNests.some(c=>c.x===x && c.y===y); }
+
+    function isCreeperNestNearby(x, y) {
+        const adjacentCoords = [
+            {x: x, y: y - 1}, // North
+            {x: x, y: y + 1}, // South
+            {x: x + 1, y: y}, // East
+            {x: x - 1, y: y}  // West
+        ];
+        return adjacentCoords.some(coord => isCreeperNest(coord.x, coord.y));
+    }
 
     function handleCreeperEncounter(coordStr) {
         const hasSurvey = playerLoadout.suit === 'Survey Gear';
@@ -441,6 +479,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCoords = { x: 0, y: 0 };
 
         chatLog.innerHTML = '';
+
+        if (globalState.lastDeathCause) {
+            const messages = deathMessages[globalState.lastDeathCause] || deathMessages["Unknown"];
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            addChatMessage("Mission Control", message);
+            globalState.lastDeathCause = null; // Reset for next time
+            saveGlobalState();
+        }
+
         addChatMessage("Mission Control", `Welcome, Cycler ${expendable.name}-${globalState.deaths}. Explore, gather data, stay alive.`);
         assignDailyMission();
         checkMissions();
@@ -644,6 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function handleDeath(cause) {
+        globalState.lastDeathCause = cause;
         ocularInterface.classList.add('hidden');
         mainWrapper.classList.add('hidden');
         const telemetryOverlay = document.getElementById('telemetry-lost-overlay');
@@ -662,7 +710,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 globalState.bankedkCals += bankedAmount;
                 
                 cyclerIdLogEl.textContent = expendable.name + '-' + globalState.deaths;
-                failureCauseLogEl.textContent = cause;
+                if (cause === "Fell") {
+                    failureCauseLogEl.textContent = "Fell into a chasm";
+                } else {
+                    failureCauseLogEl.textContent = cause;
+                }
                 failureCodeLogEl.textContent = failureCodes[cause] || failureCodes["Unknown"];
                 kCalsBankedLogEl.textContent = `${bankedAmount} (Samples Lost)`;
                 
@@ -751,7 +803,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
         const backpackItems = expendable.backpack || [];
         const consumableItems = Object.entries(globalState.consumables).filter(([, count]) => count > 0).map(([name]) => name);
-        const inventoryItems = new Set(backpackItems.concat(consumableItems));
+        const ownedEquipment = globalState.ownedItems.filter(itemName => {
+            const itemDef = itemData[itemName];
+            return itemDef && (itemDef.type === 'suit' || itemDef.type === 'tool');
+        });
+        const inventoryItems = new Set([...backpackItems, ...consumableItems, ...ownedEquipment]);
     
         if (inventoryItems.size > 0) {
             const list = document.createElement('ul');
@@ -768,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let displayText = itemName;
                     if (itemDef.type === 'consumable') {
                         displayText += ` (x${countOfConsumable})`;
-                    } else if (countInBackpack > 0) {
+                    } else if (countInBackpack > 0 && itemDef.type !== 'suit' && itemDef.type !== 'tool') {
                         displayText += ` (x${countInBackpack})`;
                     }
     
@@ -892,6 +948,31 @@ document.addEventListener('DOMContentLoaded', () => {
             logEvent("The mission has concluded. Movement disabled.");
             return;
         }
+
+        if (isCreeperNestNearby(x, y) && !isCreeperNest(x,y) && Math.random() < 0.5) {
+            addChatMessage("System", "There's a rustling in the snow nearby. Not sure where its coming from.");
+        }
+
+        const poiKey = getPoiKeyByCoords(x, y);
+        if (poiKey) {
+            const poi = poiMap[poiKey];
+            if (['Crevasse', 'Cave', 'Gorge', 'Fissure', 'Crater', 'Canyon'].some(type => poi.name.includes(type))) {
+                if (Math.random() < 0.1) { // 10% chance to fall
+                    handleDeath("Fell");
+                    return;
+                }
+            }
+        } else {
+            // Wasteland tile
+            if (Math.random() < 0.15) { // 15% chance of getting stuck
+                const extraEnergyCost = 10;
+                expendable.energy -= extraEnergyCost;
+                logEvent(`You get stuck in a deep snowdrift and have to exert extra energy to get out. (-${extraEnergyCost} Energy)`);
+                standardContinue();
+                return;
+            }
+        }
+
         const suit = playerLoadout.suit;
         const moveEnergyCost = 5 + loadoutModifiers.suits[suit].moveEnergy;
         expendable.energy -= moveEnergyCost;
@@ -915,8 +996,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateMap();
                 if (isFirstVisit) {
                     globalState.exploredTiles.push(newCoordString);
-                    const poiKey = getPoiKeyByCoords(x, y);
-                    if (poiKey === 'crystalCave') {
+                    const newPoiKey = getPoiKeyByCoords(x, y);
+                    if (newPoiKey === 'crystalCave') {
                         addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");
                         globalState.bankedkCals += 1500;
                     }
@@ -929,8 +1010,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isFirstVisit) {
             globalState.exploredTiles.push(newCoordString);
-            const poiKey = getPoiKeyByCoords(x, y);
-            if (poiKey === 'crystalCave') {
+            const newPoiKey = getPoiKeyByCoords(x, y);
+            if (newPoiKey === 'crystalCave') {
                 addChatMessage("Mission Control","Unique energy signature logged. Compensation added.");
                 globalState.bankedkCals += 1500;
             }
@@ -939,7 +1020,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         advanceTime(60);
         currentCoords = { x, y };
-        const poiKey = getPoiKeyByCoords(x, y);
         let destinationName = "a known wasteland";
         if (poiKey) {
             destinationName = poiMap[poiKey].name;
