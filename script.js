@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveGlobalState();
         }
 
-        addChatMessage("Mission Control", `Welcome, Cycler ${expendable.name}-${globalState.deaths}. Explore, gather data, stay alive.`);
+        addChatMessage("Mission Control", `Welcome, Expendable ${expendable.name}-${globalState.deaths}. Explore, gather data, stay alive.`);
         assignDailyMission();
         checkMissions();
         updateMap();
